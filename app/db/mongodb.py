@@ -14,3 +14,7 @@ def get_db():
 
 def get_user_collection():
     return get_db()["users"]
+
+
+def get_password_reset_collection():
+    return get_db()["password_resets"]

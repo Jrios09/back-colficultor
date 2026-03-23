@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from bson import ObjectId
 
 from app.db.mongodb import get_user_collection
@@ -52,3 +52,17 @@ async def authenticate_user(email: str, password: str) -> UserInDB | None:
     if not verify_password(password, user.password_hash):
         return None
     return user
+
+
+async def set_user_password(user_id: str, plain_password: str) -> bool:
+    users = get_user_collection()
+    result = await users.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "password_hash": hash_password(plain_password),
+                "updated_at": datetime.utcnow(),
+            }
+        },
+    )
+    return result.matched_count == 1
