@@ -33,7 +33,7 @@ def _generate_reset_token() -> str:
 
 def _build_reset_link(token: str) -> str:
     base_url = settings.FRONTEND_URL.rstrip("/")
-    return f"{base_url}/reset-password?token={quote(token, safe='')}"
+    return f"{base_url}/reset-password.html?token={quote(token, safe='')}"
 
 
 def _build_reset_email_html(reset_link: str) -> str:

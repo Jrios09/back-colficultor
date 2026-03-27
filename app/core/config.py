@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     MAIL_FROM: str = ""
-    FRONTEND_URL: str = "http://localhost:5173"
+    FRONTEND_URL: str = "http://localhost:5500"
     FORGOT_PASSWORD_RATE_LIMIT: int = 5
     FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS: int = 300
 
