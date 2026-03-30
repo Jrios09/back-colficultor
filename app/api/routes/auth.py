@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.schemas.user import UserCreate, UserPublic
+from app.schemas.user import UserCreate, UserPublic, UserInDB
 from app.schemas.auth import Token
 from app.schemas.password_recovery import (
     ForgotPasswordRequest,
@@ -10,6 +10,7 @@ from app.schemas.password_recovery import (
     ResetPasswordResponse,
     ResetPasswordValidateResponse,
 )
+from app.api.deps import get_current_user
 from app.models.user import create_user, authenticate_user
 from app.core.auth import create_access_token
 from app.services.password_recovery_service import (
@@ -34,6 +35,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         )
     token = create_access_token(user_id=user.id, role=user.role.value)
     return Token(access_token=token)
+
+
+@router.post("/logout", status_code=204)
+async def logout(current: UserInDB = Depends(get_current_user)):
+    return
 
 
 @router.post("/forgot-password", response_model=GenericMessageResponse)
