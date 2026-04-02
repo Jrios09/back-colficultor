@@ -1,6 +1,7 @@
 from datetime import datetime
 from app.db.mongodb import get_user_collection
 from app.core.security import hash_password
+from app.db.indexes import CASE_INSENSITIVE_COLLATION
 
 DEMO_USERS = [
     {
@@ -28,7 +29,10 @@ async def seed_demo_users() -> None:
     now = datetime.utcnow()
 
     for u in DEMO_USERS:
-        existing = await users.find_one({"email": u["email"]})
+        existing = await users.find_one(
+            {"email": u["email"]},
+            collation=CASE_INSENSITIVE_COLLATION,
+        )
         if existing:
             continue
 

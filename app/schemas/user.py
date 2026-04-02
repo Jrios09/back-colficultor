@@ -30,3 +30,7 @@ class UserPublic(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+
+class UserUpdate(BaseModel):
+    """Campos que un usuario puede editarsolos."""
+    full_name: Optional[str] = Field(None, min_length=2, max_length=100)
