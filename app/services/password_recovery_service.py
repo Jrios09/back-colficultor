@@ -6,7 +6,6 @@ from urllib.parse import quote
 from fastapi import HTTPException, status
 
 from app.core.config import settings
-from app.core.rate_limit import InMemoryRateLimiter
 from app.core.security import hash_reset_token
 from app.models.user import get_user_by_email, get_user_by_id, set_user_password
 from app.repositories.password_reset_repository import (
@@ -22,8 +21,6 @@ logger = logging.getLogger(__name__)
 GENERIC_FORGOT_PASSWORD_MESSAGE = (
     "Si el correo está registrado, recibirás un enlace de recuperación en breve."
 )
-
-_limiter = InMemoryRateLimiter()
 
 
 def _generate_reset_token() -> str:
@@ -66,17 +63,6 @@ def _build_password_changed_email_html() -> str:
 
 async def request_password_reset(email: str, client_ip: str | None = None) -> str:
     normalized_email = email.strip().lower()
-    rate_key = f"forgot-password:{client_ip or 'unknown'}:{normalized_email}"
-
-    if not _limiter.is_allowed(
-        key=rate_key,
-        limit=settings.FORGOT_PASSWORD_RATE_LIMIT,
-        window_seconds=settings.FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS,
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Demasiadas solicitudes. Intenta de nuevo más tarde.",
-        )
 
     user = await get_user_by_email(normalized_email)
     if not user:
