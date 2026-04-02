@@ -44,6 +44,16 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
                         "role":            {"enum": ["caficultor", "comprador", "admin"]},
                         "is_active":      {"bsonType": "bool"},
                         "full_name":      {"bsonType": ["string", "null"]},
+                        "perfil": {
+                            "bsonType": ["object", "null"],
+                            "properties": {
+                                "ciudad":       {"bsonType": ["string", "null"]},
+                                "departamento": {"bsonType": ["string", "null"]},
+                                "direccion":    {"bsonType": ["string", "null"]},
+                                "telefono":     {"bsonType": ["string", "null"]},
+                                "preferencias": {"bsonType": ["string", "null"]},
+                            }
+                        },
                         "created_at":     {"bsonType": "date"},
                         "updated_at":     {"bsonType": "date"},
                     },
@@ -55,3 +65,41 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
         logger.info("Validator para colección 'users' aplicado")
     except Exception as ex:
         logger.warning("No se pudo aplicar validator en 'users' (puede ya existir): %s", ex)
+
+    # ── productos (HU-03) ─────────────────────────────────────────────
+    try:
+        await db.command({
+            "collMod": "productos",
+            "validator": {
+                "$jsonSchema": {
+                    "bsonType": "object",
+                    "required": [
+                        "caficultor_id",
+                        "nombre",
+                        "descripcion",
+                        "precio",
+                        "stock",
+                        "region",
+                        "is_active",
+                        "created_at",
+                        "updated_at",
+                    ],
+                    "properties": {
+                        "caficultor_id": {"bsonType": "string"},
+                        "nombre":        {"bsonType": "string", "minLength": 1, "maxLength": 200},
+                        "descripcion":   {"bsonType": "string", "maxLength": 2000},
+                        "precio":        {"bsonType": "number", "minimum": 0.01},
+                        "stock":        {"bsonType": "int", "minimum": 0},
+                        "region":       {"bsonType": "string", "maxLength": 100},
+                        "is_active":    {"bsonType": "bool"},
+                        "created_at":    {"bsonType": "date"},
+                        "updated_at":    {"bsonType": "date"},
+                    },
+                }
+            },
+            "validationLevel": "moderate",
+            "validationAction": "error",
+        })
+        logger.info("Validator para colección 'productos' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'productos' (puede ya existir): %s", ex)

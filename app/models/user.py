@@ -72,12 +72,37 @@ async def set_user_password(user_id: str, plain_password: str) -> bool:
     return result.matched_count == 1
 
 
-async def update_user(user_id: str, full_name: str | None = None) -> UserInDB | None:
-    """Actualiza campos editables de un usuario. Retorna el documento actualizado."""
+async def update_user(
+    user_id: str,
+    full_name: str | None = None,
+    perfil_ciudad: str | None = None,
+    perfil_departamento: str | None = None,
+    perfil_direccion: str | None = None,
+    perfil_telefono: str | None = None,
+    perfil_preferencias: str | None = None,
+) -> UserInDB | None:
+    """
+    Actualiza campos editables del perfil de un usuario.
+    Retorna el documento actualizado o None si el usuario no existe.
+    Nunca modifica role, is_active o password_hash.
+    """
     users = get_user_collection()
     updates: dict = {"updated_at": datetime.utcnow()}
+
     if full_name is not None:
         updates["full_name"] = full_name
+
+    # Campos del perfil embebido (parcial — solo los no-nulos se actualizan)
+    perfil_fields = {
+        "perfil.ciudad": perfil_ciudad,
+        "perfil.departamento": perfil_departamento,
+        "perfil.direccion": perfil_direccion,
+        "perfil.telefono": perfil_telefono,
+        "perfil.preferencias": perfil_preferencias,
+    }
+    for field, value in perfil_fields.items():
+        if value is not None:
+            updates[field] = value
 
     result = await users.find_one_and_update(
         {"_id": ObjectId(user_id)},

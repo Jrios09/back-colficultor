@@ -31,6 +31,14 @@ class UserPublic(BaseModel):
     is_active: bool
     created_at: datetime
 
-class UserUpdate(BaseModel):
-    """Campos que un usuario puede editarsolos."""
+class PerfilUpdate(BaseModel):
+    """
+    Campos editables del perfil de usuario.
+    Nunca incluye role, is_active o password_hash.
+    """
     full_name: Optional[str] = Field(None, min_length=2, max_length=100)
+    perfil_ciudad: Optional[str] = Field(None, max_length=100)
+    perfil_departamento: Optional[str] = Field(None, max_length=100)
+    perfil_direccion: Optional[str] = Field(None, max_length=200)
+    perfil_telefono: Optional[str] = Field(None, max_length=20)
+    perfil_preferencias: Optional[str] = Field(None, max_length=500)
