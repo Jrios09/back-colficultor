@@ -16,10 +16,12 @@ class ResetPasswordValidateResponse(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str = Field(..., min_length=20, max_length=512)
-    new_password: str = Field(..., min_length=8, max_length=128)
-    confirm_password: str = Field(..., min_length=8, max_length=128)
+    newPassword: str = Field(..., alias="newPassword", min_length=8, max_length=128)
+    confirmPassword: str = Field(..., alias="confirmPassword", min_length=8, max_length=128)
 
-    @field_validator("new_password")
+    model_config = {"populate_by_name": True}
+
+    @field_validator("newPassword")
     @classmethod
     def validate_password_strength(cls, value: str) -> str:
         has_upper = any(char.isupper() for char in value)
@@ -35,7 +37,7 @@ class ResetPasswordRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_password_match(self):
-        if self.new_password != self.confirm_password:
+        if self.newPassword != self.confirmPassword:
             raise ValueError("Las contraseñas no coinciden")
         return self
 

@@ -133,6 +133,6 @@ async def reset_password(payload: ResetPasswordRequest, request: Request):
 
     message = await reset_password_with_token(
         token=payload.token,
-        new_password=payload.new_password,
+        new_password=payload.newPassword,
     )
     return ResetPasswordResponse(message=message)
