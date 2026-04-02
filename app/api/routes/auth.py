@@ -16,7 +16,7 @@ from app.schemas.password_recovery import (
 )
 from app.api.deps import get_current_user
 from app.models.user import create_user, authenticate_user
-from app.core.auth import create_access_token
+from app.core.auth import create_access_token, revoke_token
 from app.services.password_recovery_service import (
     request_password_reset,
     reset_password_with_token,
@@ -86,8 +86,13 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
 
 @router.post("/logout", status_code=204)
-async def logout(current: UserInDB = Depends(get_current_user)):
-    return
+async def logout(
+    request: Request,
+    current: UserInDB = Depends(get_current_user),
+):
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip()
+    await revoke_token(token)
 
 
 @router.post("/forgot-password", response_model=GenericMessageResponse)

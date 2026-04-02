@@ -7,6 +7,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: str
     role: str
+    jti: str | None = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
