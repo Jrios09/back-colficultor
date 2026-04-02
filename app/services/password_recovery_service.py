@@ -87,8 +87,16 @@ async def request_password_reset(email: str, client_ip: str | None = None) -> st
     try:
         await send_email(to_email=user.email, subject=subject, html_body=html)
     except MailDeliveryError:
-        await mark_password_reset_token_used(token_id=token_id)
-        logger.exception("Error enviando correo de recuperación para user_id=%s", user.id)
+        logger.warning(
+            "No se pudo enviar correo de recuperación para user_id=%s "
+            "(SMTP no disponible). El token sigue activo para reintento.",
+            user.id,
+        )
+        return (
+            "No pudimos enviar el correo de recuperación. "
+            "Verifica que la dirección sea correcta e intenta más tarde. "
+            "Si el problema persiste, contacta al soporte."
+        )
 
     return GENERIC_FORGOT_PASSWORD_MESSAGE
 
