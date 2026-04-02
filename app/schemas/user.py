@@ -14,6 +14,13 @@ class UserBase(BaseModel):
     role: UserRole = UserRole.COMPRADOR
     is_active: bool = True
 
+    # Campos de perfil
+    perfil_ciudad: Optional[str] = None
+    perfil_departamento: Optional[str] = None
+    perfil_direccion: Optional[str] = None
+    perfil_telefono: Optional[str] = None
+    perfil_preferencias: Optional[str] = None
+
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
 
@@ -30,6 +37,13 @@ class UserPublic(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+    
+    # Campos de perfil
+    perfil_ciudad: Optional[str] = None
+    perfil_departamento: Optional[str] = None
+    perfil_direccion: Optional[str] = None
+    perfil_telefono: Optional[str] = None
+    perfil_preferencias: Optional[str] = None
 
 class PerfilUpdate(BaseModel):
     """

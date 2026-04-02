@@ -9,6 +9,12 @@ from app.db.indexes import CASE_INSENSITIVE_COLLATION
 
 def _doc_to_in_db(doc) -> UserInDB:
     doc["_id"] = str(doc["_id"])
+    # Aplanar el objeto perfil embebido si existe en MongoDB
+    if "perfil" in doc and isinstance(doc["perfil"], dict):
+        perfil = doc.pop("perfil")
+        for key, value in perfil.items():
+            doc[f"perfil_{key}"] = value
+            
     return UserInDB(**doc)
 
 async def create_user(user_in: UserCreate) -> UserPublic:
