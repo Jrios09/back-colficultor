@@ -2,6 +2,7 @@ import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.rate_limit import InMemoryRateLimiter
@@ -22,10 +23,16 @@ from app.services.password_recovery_service import (
     reset_password_with_token,
     validate_reset_token,
 )
+from app.services.recaptcha_service import verify_recaptcha_token
+
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 _auth_rate_limiter = InMemoryRateLimiter()
 _RATE_LIMIT_ERROR_MESSAGE = "Demasiados intentos. Intenta nuevamente más tarde."
+
+
+class RecaptchaToken(BaseModel):
+    recaptcha_token: str
 
 
 def _client_ip(request: Request) -> str:
@@ -55,6 +62,23 @@ def _enforce_rate_limit(*, key: str, limit: int, window_seconds: int) -> None:
         detail=_RATE_LIMIT_ERROR_MESSAGE,
     )
 
+
+async def _verify_recaptcha(request: Request) -> None:
+    """Verifica reCAPTCHA v3. Lanza HTTPException si falla."""
+    recaptcha_token = request.headers.get("x-recaptcha-token")
+    if not recaptcha_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token de reCAPTCHA no proporcionado",
+        )
+    ok, score, msg = await verify_recaptcha_token(recaptcha_token)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Verificación de seguridad fallida{': ' + msg if msg else ''}",
+        )
+
+
 @router.post("/register", response_model=UserPublic)
 async def register(user_in: UserCreate, request: Request):
     rate_key = f"auth:register:{_client_ip(request)}"
@@ -63,7 +87,9 @@ async def register(user_in: UserCreate, request: Request):
         limit=settings.AUTH_REGISTER_RATE_LIMIT,
         window_seconds=settings.AUTH_REGISTER_RATE_LIMIT_WINDOW_SECONDS,
     )
+    await _verify_recaptcha(request)
     return await create_user(user_in)
+
 
 @router.post("/login", response_model=Token)
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
@@ -74,6 +100,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         limit=settings.AUTH_LOGIN_RATE_LIMIT,
         window_seconds=settings.AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
     )
+    await _verify_recaptcha(request)
 
     user = await authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -103,6 +130,7 @@ async def forgot_password(payload: ForgotPasswordRequest, request: Request):
         limit=settings.AUTH_FORGOT_PASSWORD_RATE_LIMIT,
         window_seconds=settings.AUTH_FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS,
     )
+    await _verify_recaptcha(request)
     message = await request_password_reset(
         email=payload.email,
         client_ip=request.client.host if request.client else None,
