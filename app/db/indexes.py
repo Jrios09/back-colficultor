@@ -14,6 +14,8 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     password_resets = db["password_resets"]
     revoked_tokens = db["revoked_tokens"]
     productos = db["productos"]
+    carritos = db["carritos"]
+    ordenes = db["ordenes"]
 
     # ── users ──────────────────────────────────────────────────────────
     # Email único — case-insensitive
@@ -61,3 +63,22 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     # Búsqueda por nombre (parcial o completa)
     await productos.create_index("nombre")
     logger.info("Índice en productos.nombre creado")
+
+    # Índices para catálogo público (HU-04)
+    await productos.create_index("is_active")
+    await productos.create_index("precio")
+    await productos.create_index("region")
+    await productos.create_index([("is_active", 1), ("region", 1), ("precio", 1)])
+    logger.info("Índices de catálogo público en productos creados")
+
+    # ── carritos (HU-05) ───────────────────────────────────────────────
+    # Un único carrito por usuario
+    await carritos.create_index("userId", unique=True)
+    await carritos.create_index("updatedAt")
+    logger.info("Índices en carritos creados")
+
+    # ── ordenes (HU-05) ────────────────────────────────────────────────
+    await ordenes.create_index("userId")
+    await ordenes.create_index("estado")
+    await ordenes.create_index("createdAt")
+    logger.info("Índices en ordenes creados")

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import auth, users, productos
+from app.api.routes import auth, users, productos, products_public, cart, orders
 from app.core.config import settings
 from app.db.mongodb import get_db
 from app.db.indexes import create_indexes
@@ -21,6 +21,9 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(productos.router)
+app.include_router(products_public.router)
+app.include_router(cart.router)
+app.include_router(orders.router)
 
 @app.on_event("startup")
 async def on_startup():

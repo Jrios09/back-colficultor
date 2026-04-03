@@ -23,6 +23,7 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
     """Aplica validators de esquema a las colecciones para prevenir documentos malformados."""
     import logging
     logger = logging.getLogger(__name__)
+    existing_collections = await db.list_collection_names()
 
     try:
         await db.command({
@@ -103,3 +104,100 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
         logger.info("Validator para colección 'productos' aplicado")
     except Exception as ex:
         logger.warning("No se pudo aplicar validator en 'productos' (puede ya existir): %s", ex)
+
+    # ── carritos (HU-05) ──────────────────────────────────────────────
+    carritos_validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": ["userId", "items", "updatedAt"],
+            "properties": {
+                "userId": {"bsonType": "string"},
+                "items": {
+                    "bsonType": "array",
+                    "items": {
+                        "bsonType": "object",
+                        "required": ["productId", "cantidad"],
+                        "properties": {
+                            "productId": {"bsonType": "string"},
+                            "cantidad": {"bsonType": "int", "minimum": 1},
+                            "precioSnapshot": {"bsonType": ["number", "null"]},
+                        },
+                    },
+                },
+                "createdAt": {"bsonType": ["date", "null"]},
+                "updatedAt": {"bsonType": "date"},
+            },
+        }
+    }
+    try:
+        if "carritos" in existing_collections:
+            await db.command({
+                "collMod": "carritos",
+                "validator": carritos_validator,
+                "validationLevel": "moderate",
+                "validationAction": "error",
+            })
+        else:
+            await db.create_collection(
+                "carritos",
+                validator=carritos_validator,
+                validationLevel="moderate",
+                validationAction="error",
+            )
+        logger.info("Validator para colección 'carritos' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'carritos' (puede ya existir): %s", ex)
+
+    # ── ordenes (HU-05) ───────────────────────────────────────────────
+    ordenes_validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": [
+                "userId",
+                "items",
+                "total",
+                "estado",
+                "createdAt",
+                "updatedAt",
+            ],
+            "properties": {
+                "userId": {"bsonType": "string"},
+                "items": {
+                    "bsonType": "array",
+                    "items": {
+                        "bsonType": "object",
+                        "required": ["productId", "nombreSnapshot", "precioSnapshot", "cantidad"],
+                        "properties": {
+                            "productId": {"bsonType": "string"},
+                            "nombreSnapshot": {"bsonType": "string"},
+                            "precioSnapshot": {"bsonType": "number", "minimum": 0.01},
+                            "cantidad": {"bsonType": "int", "minimum": 1},
+                            "subtotal": {"bsonType": ["number", "null"]},
+                        },
+                    },
+                },
+                "total": {"bsonType": "number", "minimum": 0},
+                "estado": {"bsonType": "string"},
+                "createdAt": {"bsonType": "date"},
+                "updatedAt": {"bsonType": "date"},
+            },
+        }
+    }
+    try:
+        if "ordenes" in existing_collections:
+            await db.command({
+                "collMod": "ordenes",
+                "validator": ordenes_validator,
+                "validationLevel": "moderate",
+                "validationAction": "error",
+            })
+        else:
+            await db.create_collection(
+                "ordenes",
+                validator=ordenes_validator,
+                validationLevel="moderate",
+                validationAction="error",
+            )
+        logger.info("Validator para colección 'ordenes' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'ordenes' (puede ya existir): %s", ex)
