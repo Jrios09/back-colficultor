@@ -84,3 +84,18 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await ordenes.create_index("estado")
     await ordenes.create_index("createdAt")
     logger.info("Índices en ordenes creados")
+
+    # ── oauth_states (Google OAuth CSRF) ───────────────────────────────
+    # Cada state es de un solo uso; expira a los 10 minutos automáticamente
+    oauth_states = db["oauth_states"]
+    await oauth_states.create_index("state", unique=True)
+    await oauth_states.create_index("expires_at", expireAfterSeconds=0)
+    logger.info("Índices en oauth_states creados")
+
+    # ── google_pending (registro pendiente de rol) ─────────────────────
+    # Token temporal que guarda info del usuario Google hasta que seleccione rol
+    # Expira a los 15 minutos automáticamente
+    google_pending = db["google_pending"]
+    await google_pending.create_index("temp_token_hash", unique=True)
+    await google_pending.create_index("expires_at", expireAfterSeconds=0)
+    logger.info("Índices en google_pending creados")

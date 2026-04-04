@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     RECAPTCHA_VERIFY_URL: str = "https://www.google.com/recaptcha/api/siteverify"
     RECAPTCHA_SCORE_THRESHOLD: float = 0.5
 
+    # ── Google OAuth 2.0 ───────────────────────────────────────────────
+    # Reemplaza estos valores en tu archivo .env
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    # URL a la que Google redirigirá tras la autenticación (debe registrarse
+    # en Google Cloud Console > Credenciales > URIs de redireccionamiento)
+    GOOGLE_CALLBACK_URL: str = "http://localhost:8000/api/auth/google/callback"
+
     class Config:
         env_file = ".env"
 

@@ -26,7 +26,11 @@ class UserCreate(UserBase):
 
 class UserInDB(UserBase):
     id: str = Field(alias="_id")
-    password_hash: str
+    # Null para usuarios registrados con Google (no tienen contraseña local)
+    password_hash: Optional[str] = None
+    # "local" para registro normal, "google" para OAuth
+    provider: str = "local"
+    google_sub: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
