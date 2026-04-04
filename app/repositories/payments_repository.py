@@ -13,29 +13,15 @@ def _serialize_id(doc: dict | None) -> dict | None:
     return doc
 
 
-def _parse_object_id(raw_id: str) -> ObjectId | None:
+def _parse_order_id(order_id: str) -> ObjectId | None:
     try:
-        return ObjectId(raw_id)
+        return ObjectId(order_id)
     except Exception:
         return None
 
 
-async def create_order(order_doc: dict) -> dict:
-    db = get_db()
-    result = await db["ordenes"].insert_one(order_doc)
-    order_doc["_id"] = str(result.inserted_id)
-    return order_doc
-
-
-async def list_orders_by_user(user_id: str) -> list[dict]:
-    db = get_db()
-    cursor = db["ordenes"].find({"userId": user_id}).sort("createdAt", -1)
-    docs = await cursor.to_list(length=None)
-    return [_serialize_id(doc) for doc in docs]
-
-
 async def get_order_by_id(order_id: str) -> dict | None:
-    oid = _parse_object_id(order_id)
+    oid = _parse_order_id(order_id)
     if oid is None:
         return None
     db = get_db()
@@ -43,40 +29,49 @@ async def get_order_by_id(order_id: str) -> dict | None:
     return _serialize_id(doc)
 
 
-async def order_has_caficultor(order: dict, caficultor_id: str) -> bool:
-    cached_ids = order.get("caficultorIds", [])
-    if caficultor_id in cached_ids:
-        return True
-
-    product_ids = [item.get("productId") for item in order.get("items", []) if item.get("productId")]
-    object_ids: list[ObjectId] = []
-    for pid in product_ids:
-        oid = _parse_object_id(pid)
-        if oid is not None:
-            object_ids.append(oid)
-
-    if not object_ids:
-        return False
-
+async def create_transaction(transaction_doc: dict) -> dict:
     db = get_db()
-    count = await db["productos"].count_documents(
-        {
-            "_id": {"$in": object_ids},
-            "caficultor_id": caficultor_id,
-        },
-        limit=1,
+    result = await db["transacciones"].insert_one(transaction_doc)
+    transaction_doc["_id"] = str(result.inserted_id)
+    return transaction_doc
+
+
+async def get_transaction_by_provider_ref(provider_ref: str) -> dict | None:
+    db = get_db()
+    doc = await db["transacciones"].find_one({"providerRef": provider_ref})
+    return _serialize_id(doc)
+
+
+async def update_transaction_status(
+    provider_ref: str,
+    status: str,
+    raw: dict | None = None,
+) -> dict | None:
+    db = get_db()
+    update_doc: dict = {
+        "$set": {
+            "status": status,
+            "updatedAt": datetime.utcnow(),
+        }
+    }
+    if raw is not None:
+        update_doc["$set"]["raw"] = raw
+
+    updated = await db["transacciones"].find_one_and_update(
+        {"providerRef": provider_ref},
+        update_doc,
+        return_document=ReturnDocument.AFTER,
     )
-    return count > 0
+    return _serialize_id(updated)
 
 
-async def update_order_status_with_history(
-    *,
+async def set_order_status_with_history(
     order_id: str,
     new_status: str,
     changed_by_user_id: str | None,
     reason: str | None = None,
 ) -> dict | None:
-    oid = _parse_object_id(order_id)
+    oid = _parse_order_id(order_id)
     if oid is None:
         return None
     db = get_db()
@@ -86,7 +81,8 @@ async def update_order_status_with_history(
 
     from_status = current.get("estado")
     if from_status == new_status:
-        return _serialize_id(current)
+        current["_id"] = str(current["_id"])
+        return current
 
     now = datetime.utcnow()
     history_item = {
