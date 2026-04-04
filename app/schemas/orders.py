@@ -42,5 +42,11 @@ class OrderResponse(BaseModel):
     updatedAt: datetime
 
 
+class SaleOrderResponse(OrderResponse):
+    """Vista de una orden para el caficultor: solo incluye sus items y su subtotal."""
+    caficultor_items: list[OrderItemResponse] = Field(default_factory=list)
+    caficultor_subtotal: float = 0.0
+
+
 class OrderStatusUpdateRequest(BaseModel):
     estado: OrderStatus

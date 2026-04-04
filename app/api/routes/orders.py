@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user, require_role
-from app.schemas.orders import OrderResponse, OrderStatusUpdateRequest
+from app.schemas.orders import OrderResponse, OrderStatusUpdateRequest, SaleOrderResponse
 from app.schemas.user import UserInDB, UserRole
 from app.services.orders_service import (
     change_order_status,
@@ -28,11 +28,13 @@ async def get_my_orders(
     return await list_my_orders(current.id)
 
 
-@router.get("/ventas", response_model=list[OrderResponse])
+@router.get("/ventas", response_model=list[SaleOrderResponse])
 async def get_my_sales(
     current: UserInDB = Depends(require_role(UserRole.CAFICULTOR)),
 ):
-    """Lista todas las órdenes que contienen productos del caficultor autenticado."""
+    """Lista órdenes con productos del caficultor autenticado.
+    Cada orden incluye solo los ítems y el subtotal que corresponden a ese caficultor.
+    """
     return await list_sales(current.id)
 
 
