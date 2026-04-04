@@ -4,7 +4,7 @@ from bson import ObjectId
 
 from app.db.mongodb import get_user_collection
 from app.core.security import hash_password, verify_password
-from app.schemas.user import UserCreate, UserInDB, UserPublic
+from app.schemas.user import UserCreate, UserInDB, UserPublic, UserRole
 from app.db.indexes import CASE_INSENSITIVE_COLLATION
 
 def _doc_to_in_db(doc) -> UserInDB:
@@ -59,9 +59,57 @@ async def authenticate_user(email: str, password: str) -> UserInDB | None:
     user = await get_user_by_email(email)
     if not user:
         return None
+    # Los usuarios de Google no tienen contraseña local
+    if not user.password_hash:
+        return None
     if not verify_password(password, user.password_hash):
         return None
     return user
+
+
+async def get_user_by_google_sub(google_sub: str) -> UserInDB | None:
+    """Busca un usuario por su identificador único de Google (sub)."""
+    users = get_user_collection()
+    doc = await users.find_one({"google_sub": google_sub})
+    if not doc:
+        return None
+    return _doc_to_in_db(doc)
+
+
+async def create_google_user(
+    email: str,
+    full_name: str,
+    google_sub: str,
+    role: UserRole,
+    picture: str | None = None,
+) -> UserPublic:
+    """Crea un usuario nuevo registrado mediante Google OAuth.
+    No genera password_hash — el usuario solo puede acceder vía Google.
+    """
+    users = get_user_collection()
+
+    # Doble verificación: el email no debe existir (race condition)
+    if await users.find_one({"email": email}, collation=CASE_INSENSITIVE_COLLATION):
+        raise HTTPException(status_code=400, detail="Email ya registrado")
+
+    now = datetime.utcnow()
+    doc = {
+        "email": email,
+        "full_name": full_name,
+        "role": role.value,
+        "is_active": True,
+        "password_hash": None,
+        "provider": "google",
+        "google_sub": google_sub,
+        "created_at": now,
+        "updated_at": now,
+    }
+    if picture:
+        doc["perfil"] = {"foto": picture}
+
+    result = await users.insert_one(doc)
+    doc["_id"] = str(result.inserted_id)
+    return UserPublic(**doc)
 
 
 async def set_user_password(user_id: str, plain_password: str) -> bool:

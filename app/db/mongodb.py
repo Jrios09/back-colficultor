@@ -18,6 +18,14 @@ def get_user_collection():
 def get_password_reset_collection():
     return get_db()["password_resets"]
 
+def get_oauth_states_collection():
+    """Estados OAuth temporales para protección CSRF."""
+    return get_db()["oauth_states"]
+
+def get_google_pending_collection():
+    """Registros pendientes de Google (usuario nuevo sin rol asignado aún)."""
+    return get_db()["google_pending"]
+
 
 async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
     """Aplica validators de esquema a las colecciones para prevenir documentos malformados."""
@@ -31,20 +39,25 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
             "validator": {
                 "$jsonSchema": {
                     "bsonType": "object",
+                    # password_hash ya no es requerido: los usuarios de Google no lo tienen
                     "required": [
                         "email",
-                        "password_hash",
                         "role",
                         "is_active",
                         "created_at",
                         "updated_at",
                     ],
                     "properties": {
-                        "email":           {"bsonType": "string"},
-                        "password_hash":   {"bsonType": "string"},
-                        "role":            {"enum": ["caficultor", "comprador", "admin"]},
-                        "is_active":      {"bsonType": "bool"},
-                        "full_name":      {"bsonType": ["string", "null"]},
+                        "email":         {"bsonType": "string"},
+                        # null para usuarios Google, string para usuarios locales
+                        "password_hash": {"bsonType": ["string", "null"]},
+                        "role":          {"enum": ["caficultor", "comprador", "admin"]},
+                        "is_active":     {"bsonType": "bool"},
+                        "full_name":     {"bsonType": ["string", "null"]},
+                        # "local" | "google"
+                        "provider":      {"bsonType": ["string", "null"]},
+                        # Identificador único de Google (sub)
+                        "google_sub":    {"bsonType": ["string", "null"]},
                         "perfil": {
                             "bsonType": ["object", "null"],
                             "properties": {
@@ -53,10 +66,11 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
                                 "direccion":    {"bsonType": ["string", "null"]},
                                 "telefono":     {"bsonType": ["string", "null"]},
                                 "preferencias": {"bsonType": ["string", "null"]},
+                                "foto":         {"bsonType": ["string", "null"]},
                             }
                         },
-                        "created_at":     {"bsonType": "date"},
-                        "updated_at":     {"bsonType": "date"},
+                        "created_at":    {"bsonType": "date"},
+                        "updated_at":    {"bsonType": "date"},
                     },
                 }
             },
