@@ -6,6 +6,7 @@ from app.repositories.cart_repository import clear_cart, get_or_create_cart
 from app.repositories.orders_repository import (
     create_order,
     get_order_by_id,
+    get_product_ids_of_caficultor,
     list_orders_by_caficultor,
     list_orders_by_user,
     order_has_caficultor,
@@ -175,7 +176,25 @@ async def list_my_orders(user_id: str) -> list[dict]:
 
 
 async def list_sales(caficultor_id: str) -> list[dict]:
-    return await list_orders_by_caficultor(caficultor_id)
+    orders = await list_orders_by_caficultor(caficultor_id)
+
+    # Recolectar todos los product_ids en un solo pass
+    all_product_ids: set[str] = {
+        item["productId"]
+        for order in orders
+        for item in order.get("items", [])
+    }
+
+    # Un solo query a MongoDB para saber cuáles productos son de este caficultor
+    my_product_ids = await get_product_ids_of_caficultor(all_product_ids, caficultor_id)
+
+    # Anotar cada orden con la vista del caficultor
+    for order in orders:
+        my_items = [i for i in order.get("items", []) if i["productId"] in my_product_ids]
+        order["caficultor_items"]    = my_items
+        order["caficultor_subtotal"] = round(sum(i["subtotal"] for i in my_items), 2)
+
+    return orders
 
 
 async def get_order_for_view(*, order_id: str, viewer_id: str, viewer_role: str | UserRole) -> dict:
