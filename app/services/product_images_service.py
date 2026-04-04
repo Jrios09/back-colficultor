@@ -192,6 +192,90 @@ async def delete_product_image(*, product_id: str, image_id: str, current: UserI
     return ProductImageMetadata(**removed)
 
 
+async def replace_product_image(
+    *,
+    product_id: str,
+    file: UploadFile,
+    current: UserInDB,
+) -> ProductImageMetadata:
+    """Reemplaza todas las imágenes del producto por una nueva.
+
+    Orden de operaciones:
+    1. Sube la nueva imagen a Cloudinary.
+    2. Elimina las imágenes anteriores de Cloudinary.
+    3. Actualiza MongoDB con solo la nueva imagen.
+
+    Si el paso 3 falla se borra la imagen recién subida (rollback) para no
+    dejar huérfanos en Cloudinary.
+    """
+    product = await get_producto_by_id(product_id)
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
+
+    if not _can_manage_product_images(current, product):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para gestionar imágenes de este producto",
+        )
+
+    validated = await _validate_file(file)
+    cloudinary = _get_cloudinary_or_raise()
+
+    # 1. Subir nueva imagen
+    try:
+        new_image = await cloudinary.upload_product_image(
+            product_id=product_id,
+            filename=validated.filename,
+            file_bytes=validated.data,
+        )
+    except Exception as exc:
+        logger.exception("Fallo subiendo nueva imagen a Cloudinary para producto %s", product_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No fue posible subir la imagen a Cloudinary",
+        ) from exc
+
+    # 2. Eliminar imágenes anteriores de Cloudinary (best-effort)
+    for old in product.get("imagenes", []):
+        public_id = old.get("public_id")
+        if not public_id:
+            continue
+        try:
+            await cloudinary.delete_image(public_id)
+        except Exception:
+            logger.warning(
+                "No se pudo eliminar imagen anterior de Cloudinary: public_id=%s — se continúa",
+                public_id,
+            )
+
+    # 3. Actualizar MongoDB
+    try:
+        await clear_producto_imagenes(producto_id=product_id)
+        await append_producto_imagenes(
+            producto_id=product_id,
+            nuevas_imagenes=[new_image.model_dump()],
+        )
+    except Exception as exc:
+        logger.exception(
+            "Fallo actualizando MongoDB tras reemplazar imagen del producto %s — "
+            "intentando rollback en Cloudinary",
+            product_id,
+        )
+        try:
+            await cloudinary.delete_image(new_image.public_id)
+        except Exception:
+            logger.exception(
+                "Error en rollback: no se pudo borrar nueva imagen huérfana public_id=%s",
+                new_image.public_id,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No fue posible guardar la nueva imagen en el producto",
+        ) from exc
+
+    return new_image
+
+
 async def delete_all_product_images_for_product(product: dict) -> None:
     images = product.get("imagenes", [])
     if not images:
