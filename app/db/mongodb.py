@@ -147,6 +147,10 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
             "required": ["userId", "items", "updatedAt"],
             "properties": {
                 "userId": {"bsonType": "string"},
+                "caficultorIds": {
+                    "bsonType": ["array", "null"],
+                    "items": {"bsonType": "string"},
+                },
                 "items": {
                     "bsonType": "array",
                     "items": {
@@ -213,6 +217,20 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
                 },
                 "total": {"bsonType": "number", "minimum": 0},
                 "estado": {"bsonType": "string"},
+                "statusHistory": {
+                    "bsonType": ["array", "null"],
+                    "items": {
+                        "bsonType": "object",
+                        "required": ["toStatus", "createdAt"],
+                        "properties": {
+                            "fromStatus": {"bsonType": ["string", "null"]},
+                            "toStatus": {"bsonType": "string"},
+                            "changedByUserId": {"bsonType": ["string", "null"]},
+                            "reason": {"bsonType": ["string", "null"]},
+                            "createdAt": {"bsonType": "date"},
+                        },
+                    },
+                },
                 "createdAt": {"bsonType": "date"},
                 "updatedAt": {"bsonType": "date"},
             },
@@ -236,3 +254,53 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
         logger.info("Validator para colección 'ordenes' aplicado")
     except Exception as ex:
         logger.warning("No se pudo aplicar validator en 'ordenes' (puede ya existir): %s", ex)
+
+    # ── transacciones (HU-06) ────────────────────────────────────────
+    transacciones_validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": [
+                "orderId",
+                "userId",
+                "provider",
+                "providerRef",
+                "status",
+                "amount",
+                "currency",
+                "createdAt",
+                "updatedAt",
+            ],
+            "properties": {
+                "orderId": {"bsonType": "string"},
+                "userId": {"bsonType": "string"},
+                "provider": {"bsonType": "string"},
+                "providerRef": {"bsonType": "string"},
+                "status": {
+                    "enum": ["INITIATED", "PENDING", "APPROVED", "REJECTED", "FAILED"],
+                },
+                "amount": {"bsonType": "number", "minimum": 0},
+                "currency": {"bsonType": "string", "minLength": 3, "maxLength": 3},
+                "raw": {"bsonType": ["object", "null"]},
+                "createdAt": {"bsonType": "date"},
+                "updatedAt": {"bsonType": "date"},
+            },
+        }
+    }
+    try:
+        if "transacciones" in existing_collections:
+            await db.command({
+                "collMod": "transacciones",
+                "validator": transacciones_validator,
+                "validationLevel": "moderate",
+                "validationAction": "error",
+            })
+        else:
+            await db.create_collection(
+                "transacciones",
+                validator=transacciones_validator,
+                validationLevel="moderate",
+                validationAction="error",
+            )
+        logger.info("Validator para colección 'transacciones' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'transacciones' (puede ya existir): %s", ex)

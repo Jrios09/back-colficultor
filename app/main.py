@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import auth, users, productos, products_public, cart, orders, product_images
+from app.api.routes import auth, users, productos, products_public, cart, orders, product_images, payments
 from app.api.routes import google_auth
 from app.core.config import settings
 from app.db.mongodb import get_db
@@ -27,6 +27,7 @@ app.include_router(product_images.router)
 app.include_router(products_public.router)
 app.include_router(cart.router)
 app.include_router(orders.router)
+app.include_router(payments.router)
 
 @app.on_event("startup")
 async def on_startup():

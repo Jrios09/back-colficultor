@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     MAIL_FROM: str = ""
     FRONTEND_URL: str = "http://localhost:5500"
+    BASE_URL_BACKEND: str = "http://localhost:8000"
+    APP_ENV: str = "dev"
     FORGOT_PASSWORD_RATE_LIMIT: int = 5
     FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS: int = 300
     AUTH_LOGIN_RATE_LIMIT: int = 5
@@ -34,6 +36,18 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
     PRODUCT_IMAGE_MAX_SIZE_BYTES: int = 5 * 1024 * 1024
     PRODUCT_IMAGE_MAX_FILES_PER_PRODUCT: int = 8
+    PAYMENT_PROVIDER: str = "mock"
+    PAYMENT_SECRET: str = ""
+    WEBHOOK_SECRET: str = ""
+    PAYMENT_PUBLIC_KEY: str = ""
+    PAYU_MERCHANT_ID: str = ""
+    PAYU_API_LOGIN: str = ""
+    PAYU_API_KEY: str = ""
+    PAYU_ACCOUNT_ID: str = ""
+    PAYU_COUNTRY: str = "CO"
+    PAYU_CURRENCY: str = "COP"
+    PAYU_SANDBOX: bool = True
+    PAYU_SIGNATURE_ALGORITHM: str = "MD5"
 
     # ── Google OAuth 2.0 ───────────────────────────────────────────────
     # Reemplaza estos valores en tu archivo .env

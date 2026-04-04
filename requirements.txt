@@ -34,7 +34,6 @@ pymongo==4.16.0
 python-dotenv==1.2.2
 python-jose==3.5.0
 python-multipart==0.0.22
-pytest==8.4.2
 requests==2.32.5
 rsa==4.9.1
 six==1.17.0
