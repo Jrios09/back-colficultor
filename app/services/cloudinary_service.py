@@ -40,6 +40,9 @@ class CloudinaryService:
             public_id=public_id,
             unique_filename=False,
             overwrite=False,
+            transformation=[
+                {"width": 1080, "height": 1080, "crop": "fill", "gravity": "auto"},
+            ],
         )
 
         return ProductImageMetadata(
