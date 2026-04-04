@@ -47,6 +47,14 @@ class PaymentWebhookResponse(BaseModel):
     status: PaymentStatus
 
 
+class PayuRedirectConfirmRequest(BaseModel):
+    transactionState: str = Field(..., min_length=1)
+    referenceCode: str = Field(..., min_length=1)
+    orderId: str = Field(..., min_length=1)
+    TX_VALUE: str = Field(..., min_length=1)
+    currency: str = Field(default="COP", min_length=3, max_length=3)
+
+
 class MockEmitPaymentEventRequest(BaseModel):
     orderId: str = Field(..., min_length=1)
     providerRef: str = Field(..., min_length=1)

@@ -8,6 +8,7 @@ from app.services.orders_service import (
     create_order_from_cart,
     get_order_for_view,
     list_my_orders,
+    list_sales,
 )
 
 router = APIRouter(prefix="/api/ordenes", tags=["ordenes"])
@@ -25,6 +26,14 @@ async def get_my_orders(
     current: UserInDB = Depends(require_role(UserRole.COMPRADOR)),
 ):
     return await list_my_orders(current.id)
+
+
+@router.get("/ventas", response_model=list[OrderResponse])
+async def get_my_sales(
+    current: UserInDB = Depends(require_role(UserRole.CAFICULTOR)),
+):
+    """Lista todas las órdenes que contienen productos del caficultor autenticado."""
+    return await list_sales(current.id)
 
 
 @router.get("/{order_id}", response_model=OrderResponse)

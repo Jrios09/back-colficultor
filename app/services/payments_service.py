@@ -153,8 +153,8 @@ def _build_payu_checkout(order: dict, *, provider_ref: str, buyer_email: str | N
         "test": "1" if settings.PAYU_SANDBOX else "0",
         "buyerEmail": buyer_email or "comprador@colficultor.local",
         "buyerFullName": buyer_name or "Comprador Colficultor",
-        "responseUrl": f"{settings.FRONTEND_URL}/index.html#resultado-pago",
-        "confirmationUrl": f"{settings.BASE_URL_BACKEND}/api/pagos/webhook",
+        "responseUrl": f"{settings.FRONTEND_URL.rstrip('/')}/index.html",
+        "confirmationUrl": f"{settings.BASE_URL_BACKEND.rstrip('/')}/api/pagos/webhook",
         "extra1": str(order["_id"]),  # orderId para reconciliación
         "lng": "es",
     }
@@ -264,6 +264,47 @@ async def _persist_payment_result(
         providerRef=provider_ref,
         orderId=order_id,
         status=status_value,
+    )
+
+
+async def confirm_payu_redirect(
+    *,
+    transaction_state: str,
+    reference_code: str,
+    order_id: str,
+    tx_value: str,
+    currency: str,
+    user_id: str,
+) -> PaymentWebhookResponse:
+    """Procesa el redirect de PayU sandbox desde el frontend.
+
+    PayU redirige al usuario de vuelta al frontend con params en la URL.
+    Como el webhook no puede alcanzar localhost en desarrollo, el frontend
+    llama a este endpoint para registrar el resultado del pago.
+    Solo disponible cuando PAYU_SANDBOX=True.
+    """
+    if not settings.PAYU_SANDBOX:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este endpoint solo está disponible en modo sandbox",
+        )
+
+    payment_status = _map_payu_state_to_internal(str(transaction_state))
+
+    try:
+        amount = float(tx_value.replace(",", "."))
+    except (ValueError, AttributeError):
+        amount = 0.0
+
+    return await _persist_payment_result(
+        provider="payu",
+        provider_ref=reference_code,
+        order_id=order_id,
+        user_id=user_id,
+        status_value=payment_status,
+        amount=amount,
+        currency=currency.upper() or "COP",
+        raw={"transactionState": transaction_state, "source": "redirect_sandbox"},
     )
 
 

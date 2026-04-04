@@ -6,6 +6,7 @@ from app.repositories.cart_repository import clear_cart, get_or_create_cart
 from app.repositories.orders_repository import (
     create_order,
     get_order_by_id,
+    list_orders_by_caficultor,
     list_orders_by_user,
     order_has_caficultor,
     update_order_status_with_history,
@@ -171,6 +172,10 @@ async def create_order_from_cart(user_id: str) -> dict:
 
 async def list_my_orders(user_id: str) -> list[dict]:
     return await list_orders_by_user(user_id)
+
+
+async def list_sales(caficultor_id: str) -> list[dict]:
+    return await list_orders_by_caficultor(caficultor_id)
 
 
 async def get_order_for_view(*, order_id: str, viewer_id: str, viewer_role: str | UserRole) -> dict:

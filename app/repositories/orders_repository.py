@@ -43,6 +43,13 @@ async def get_order_by_id(order_id: str) -> dict | None:
     return _serialize_id(doc)
 
 
+async def list_orders_by_caficultor(caficultor_id: str) -> list[dict]:
+    db = get_db()
+    cursor = db["ordenes"].find({"caficultorIds": caficultor_id}).sort("createdAt", -1)
+    docs = await cursor.to_list(length=None)
+    return [_serialize_id(doc) for doc in docs]
+
+
 async def order_has_caficultor(order: dict, caficultor_id: str) -> bool:
     cached_ids = order.get("caficultorIds", [])
     if caficultor_id in cached_ids:
