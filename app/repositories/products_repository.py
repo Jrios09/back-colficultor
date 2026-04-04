@@ -27,11 +27,20 @@ def _build_catalog_query(
     query: dict = {"is_active": True}
 
     if q:
-        safe_q = re.escape(q.strip())
-        query["nombre"] = {"$regex": safe_q, "$options": "i"}
+        normalized_q = q.strip()
+        if normalized_q:
+            safe_q = re.escape(normalized_q)
+            query["nombre"] = {"$regex": safe_q, "$options": "i"}
 
     if region:
-        query["region"] = {"$regex": f"^{re.escape(region.strip())}$", "$options": "i"}
+        normalized_region = region.strip()
+        if normalized_region:
+            exact_region = {"$regex": f"^{re.escape(normalized_region)}$", "$options": "i"}
+            # Compatibilidad con datos legacy que usen "origen" en vez de "region".
+            query["$or"] = [
+                {"region": exact_region},
+                {"origen": exact_region},
+            ]
 
     price_filter: dict = {}
     if min_price is not None:
