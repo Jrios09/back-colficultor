@@ -106,6 +106,27 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
                         "precio":        {"bsonType": "number", "minimum": 0.01},
                         "stock":        {"bsonType": "int", "minimum": 0},
                         "region":       {"bsonType": "string", "maxLength": 100},
+                        "urls_imagenes": {
+                            "bsonType": ["array", "null"],
+                            "items": {"bsonType": "string"},
+                        },
+                        "imagenes": {
+                            "bsonType": ["array", "null"],
+                            "items": {
+                                "bsonType": "object",
+                                "required": ["url", "secure_url", "public_id", "asset_id"],
+                                "properties": {
+                                    "url": {"bsonType": "string"},
+                                    "secure_url": {"bsonType": "string"},
+                                    "public_id": {"bsonType": "string"},
+                                    "asset_id": {"bsonType": "string"},
+                                    "format": {"bsonType": ["string", "null"]},
+                                    "width": {"bsonType": ["int", "long", "null"]},
+                                    "height": {"bsonType": ["int", "long", "null"]},
+                                    "bytes": {"bsonType": ["int", "long", "null"]},
+                                },
+                            },
+                        },
                         "is_active":    {"bsonType": "bool"},
                         "created_at":    {"bsonType": "date"},
                         "updated_at":    {"bsonType": "date"},

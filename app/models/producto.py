@@ -22,6 +22,8 @@ async def create_producto(caficultor_id: str, producto_in: dict) -> dict:
         **producto_in,
         "caficultor_id": caficultor_id,
         "is_active": True,
+        "urls_imagenes": [],
+        "imagenes": [],
         "created_at": now,
         "updated_at": now,
     }
@@ -107,3 +109,112 @@ async def soft_delete_producto(producto_id: str, caficultor_id: str) -> None:
     Lanza 404/403 con los mismos criterios que update_producto.
     """
     await update_producto(producto_id, caficultor_id, {"is_active": False})
+
+
+async def soft_delete_producto_admin(producto_id: str) -> None:
+    """
+    Desactiva un producto (soft-delete) sin verificar dueño.
+    Útil para rol admin.
+    """
+    db = get_db()
+    result = await db["productos"].update_one(
+        {"_id": ObjectId(producto_id)},
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
+
+
+def _extract_urls(imagenes: list[dict]) -> list[str]:
+    urls: list[str] = []
+    for image in imagenes:
+        secure_url = image.get("secure_url")
+        url = image.get("url")
+        if isinstance(secure_url, str) and secure_url:
+            urls.append(secure_url)
+        elif isinstance(url, str) and url:
+            urls.append(url)
+    return urls
+
+
+async def append_producto_imagenes(producto_id: str, nuevas_imagenes: list[dict]) -> dict:
+    db = get_db()
+    doc = await db["productos"].find_one({"_id": ObjectId(producto_id)})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
+
+    actuales = doc.get("imagenes", [])
+    merged = [*actuales, *nuevas_imagenes]
+    urls = _extract_urls(merged)
+
+    updated = await db["productos"].find_one_and_update(
+        {"_id": ObjectId(producto_id)},
+        {
+            "$set": {
+                "imagenes": merged,
+                "urls_imagenes": urls,
+                "updated_at": datetime.utcnow(),
+            }
+        },
+        return_document=True,
+    )
+    return _doc_to_product(updated)
+
+
+async def remove_producto_imagen_por_id(producto_id: str, image_id: str) -> tuple[dict, dict]:
+    db = get_db()
+    doc = await db["productos"].find_one({"_id": ObjectId(producto_id)})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
+
+    imagenes = doc.get("imagenes", [])
+    removed = None
+    remaining: list[dict] = []
+    for image in imagenes:
+        if image.get("asset_id") == image_id or image.get("public_id") == image_id:
+            if removed is None:
+                removed = image
+                continue
+        remaining.append(image)
+
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Imagen no encontrada en el producto",
+        )
+
+    updated = await db["productos"].find_one_and_update(
+        {"_id": ObjectId(producto_id)},
+        {
+            "$set": {
+                "imagenes": remaining,
+                "urls_imagenes": _extract_urls(remaining),
+                "updated_at": datetime.utcnow(),
+            }
+        },
+        return_document=True,
+    )
+    return _doc_to_product(updated), removed
+
+
+async def clear_producto_imagenes(producto_id: str) -> None:
+    db = get_db()
+    await db["productos"].update_one(
+        {"_id": ObjectId(producto_id)},
+        {
+            "$set": {
+                "imagenes": [],
+                "urls_imagenes": [],
+                "updated_at": datetime.utcnow(),
+            }
+        },
+    )

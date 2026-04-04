@@ -14,7 +14,9 @@ from app.models.producto import (
     get_producto_by_id,
     update_producto,
     soft_delete_producto,
+    soft_delete_producto_admin,
 )
+from app.services.product_images_service import delete_all_product_images_for_product
 
 router = APIRouter(prefix="/api/productos", tags=["productos"])
 
@@ -84,7 +86,7 @@ async def editar_producto(
 @router.delete("/{producto_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_producto(
     producto_id: str,
-    current: UserInDB = Depends(require_role(UserRole.CAFICULTOR)),
+    current: UserInDB = Depends(require_role(UserRole.CAFICULTOR, UserRole.ADMIN)),
 ):
     """
     Desactiva un producto (soft-delete).
@@ -94,8 +96,13 @@ async def eliminar_producto(
     if not producto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
 
-    if producto["caficultor_id"] != current.id:
+    is_admin = current.role == UserRole.ADMIN
+    if not is_admin and producto["caficultor_id"] != current.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para eliminar este producto")
 
-    await soft_delete_producto(producto_id, current.id)
+    await delete_all_product_images_for_product(producto)
+    if is_admin:
+        await soft_delete_producto_admin(producto_id)
+    else:
+        await soft_delete_producto(producto_id, current.id)
     return None

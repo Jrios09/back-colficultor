@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     RECAPTCHA_SECRET_KEY: str = ""
     RECAPTCHA_VERIFY_URL: str = "https://www.google.com/recaptcha/api/siteverify"
     RECAPTCHA_SCORE_THRESHOLD: float = 0.5
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+    PRODUCT_IMAGE_MAX_SIZE_BYTES: int = 5 * 1024 * 1024
+    PRODUCT_IMAGE_MAX_FILES_PER_PRODUCT: int = 8
 
     # ── Google OAuth 2.0 ───────────────────────────────────────────────
     # Reemplaza estos valores en tu archivo .env

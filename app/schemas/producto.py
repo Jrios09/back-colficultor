@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
+from app.schemas.product_image import ProductImageMetadata
+
 
 class ProductoBase(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=200)
@@ -34,6 +36,8 @@ class ProductoInDB(ProductoBase):
     id: str = Field(alias="_id")
     caficultor_id: str
     is_active: bool
+    urls_imagenes: list[str] = Field(default_factory=list)
+    imagenes: list[ProductImageMetadata] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -48,4 +52,6 @@ class ProductoPublic(BaseModel):
     stock: int
     region: str
     is_active: bool
+    urls_imagenes: list[str] = Field(default_factory=list)
+    imagenes: list[ProductImageMetadata] = Field(default_factory=list)
     created_at: datetime
