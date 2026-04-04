@@ -50,6 +50,22 @@ async def list_orders_by_caficultor(caficultor_id: str) -> list[dict]:
     return [_serialize_id(doc) for doc in docs]
 
 
+async def get_product_ids_of_caficultor(product_ids: set[str], caficultor_id: str) -> set[str]:
+    """Dado un conjunto de product_ids, devuelve solo los que pertenecen al caficultor."""
+    if not product_ids:
+        return set()
+    db = get_db()
+    oids = [ObjectId(pid) for pid in product_ids if ObjectId.is_valid(pid)]
+    if not oids:
+        return set()
+    cursor = db["productos"].find(
+        {"_id": {"$in": oids}, "caficultor_id": caficultor_id},
+        {"_id": 1},
+    )
+    docs = await cursor.to_list(length=None)
+    return {str(doc["_id"]) for doc in docs}
+
+
 async def order_has_caficultor(order: dict, caficultor_id: str) -> bool:
     cached_ids = order.get("caficultorIds", [])
     if caficultor_id in cached_ids:
