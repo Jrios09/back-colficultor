@@ -68,7 +68,9 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await productos.create_index("is_active")
     await productos.create_index("precio")
     await productos.create_index("region")
+    await productos.create_index("origen")
     await productos.create_index([("is_active", 1), ("region", 1), ("precio", 1)])
+    await productos.create_index([("is_active", 1), ("origen", 1), ("precio", 1)])
     logger.info("Índices de catálogo público en productos creados")
 
     # ── carritos (HU-05) ───────────────────────────────────────────────
