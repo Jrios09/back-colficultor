@@ -304,3 +304,88 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
         logger.info("Validator para colección 'transacciones' aplicado")
     except Exception as ex:
         logger.warning("No se pudo aplicar validator en 'transacciones' (puede ya existir): %s", ex)
+
+    # ── resenas (HU-08) ───────────────────────────────────────────────
+    resenas_validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": [
+                "productId",
+                "userId",
+                "calificacion",
+                "comentario",
+                "createdAt",
+                "updatedAt",
+            ],
+            "properties": {
+                "productId": {"bsonType": "string"},
+                "userId": {"bsonType": "string"},
+                "calificacion": {"bsonType": "int", "minimum": 1, "maximum": 5},
+                "comentario": {"bsonType": "string", "minLength": 3, "maxLength": 1200},
+                "createdAt": {"bsonType": "date"},
+                "updatedAt": {"bsonType": "date"},
+            },
+        }
+    }
+    try:
+        if "resenas" in existing_collections:
+            await db.command({
+                "collMod": "resenas",
+                "validator": resenas_validator,
+                "validationLevel": "moderate",
+                "validationAction": "error",
+            })
+        else:
+            await db.create_collection(
+                "resenas",
+                validator=resenas_validator,
+                validationLevel="moderate",
+                validationAction="error",
+            )
+        logger.info("Validator para colección 'resenas' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'resenas' (puede ya existir): %s", ex)
+
+    # ── pqr_tickets (HU-09) ───────────────────────────────────────────
+    pqr_tickets_validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": [
+                "userId",
+                "tipo",
+                "asunto",
+                "descripcion",
+                "estado",
+                "createdAt",
+                "updatedAt",
+            ],
+            "properties": {
+                "userId": {"bsonType": "string"},
+                "tipo": {"enum": ["PETICION", "QUEJA", "RECLAMO", "SOPORTE"]},
+                "asunto": {"bsonType": "string", "minLength": 3, "maxLength": 200},
+                "descripcion": {"bsonType": "string", "minLength": 5, "maxLength": 3000},
+                "estado": {"enum": ["ABIERTO", "EN_PROCESO", "CERRADO"]},
+                "respuesta": {"bsonType": ["string", "null"]},
+                "createdAt": {"bsonType": "date"},
+                "updatedAt": {"bsonType": "date"},
+            },
+        }
+    }
+    try:
+        if "pqr_tickets" in existing_collections:
+            await db.command({
+                "collMod": "pqr_tickets",
+                "validator": pqr_tickets_validator,
+                "validationLevel": "moderate",
+                "validationAction": "error",
+            })
+        else:
+            await db.create_collection(
+                "pqr_tickets",
+                validator=pqr_tickets_validator,
+                validationLevel="moderate",
+                validationAction="error",
+            )
+        logger.info("Validator para colección 'pqr_tickets' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'pqr_tickets' (puede ya existir): %s", ex)

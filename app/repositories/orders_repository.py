@@ -92,6 +92,19 @@ async def order_has_caficultor(order: dict, caficultor_id: str) -> bool:
     return count > 0
 
 
+async def user_has_paid_order_for_product(*, user_id: str, product_id: str) -> bool:
+    db = get_db()
+    count = await db["ordenes"].count_documents(
+        {
+            "userId": user_id,
+            "estado": "PAGADA",
+            "items": {"$elemMatch": {"productId": product_id}},
+        },
+        limit=1,
+    )
+    return count > 0
+
+
 async def update_order_status_with_history(
     *,
     order_id: str,
