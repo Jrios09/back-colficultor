@@ -20,3 +20,8 @@ class ProductImageResponse(BaseModel):
 class ProductImageDeleteResponse(BaseModel):
     message: str
     image: ProductImageMetadata
+
+
+class ProductImageReplaceResponse(BaseModel):
+    product_id: str
+    image: ProductImageMetadata

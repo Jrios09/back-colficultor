@@ -19,6 +19,7 @@ class CatalogItem(BaseModel):
     stock: int
     region: str
     is_active: bool
+    urls_imagenes: list[str] = Field(default_factory=list)
     created_at: datetime
 
 
