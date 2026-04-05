@@ -50,3 +50,8 @@ class SaleOrderResponse(OrderResponse):
 
 class OrderStatusUpdateRequest(BaseModel):
     estado: OrderStatus
+
+
+class OrderDeleteResponse(BaseModel):
+    message: str
+    orderId: str

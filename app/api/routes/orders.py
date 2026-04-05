@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user, require_role
-from app.schemas.orders import OrderResponse, OrderStatusUpdateRequest, SaleOrderResponse
+from app.schemas.orders import (
+    OrderDeleteResponse,
+    OrderResponse,
+    OrderStatusUpdateRequest,
+    SaleOrderResponse,
+)
 from app.schemas.user import UserInDB, UserRole
 from app.services.orders_service import (
     change_order_status,
     create_order_from_cart,
+    delete_pending_order_for_buyer,
     get_order_for_view,
     list_my_orders,
     list_sales,
@@ -61,4 +67,15 @@ async def update_order_status(
         new_status=payload.estado,
         actor_id=current.id,
         actor_role=current.role,
+    )
+
+
+@router.delete("/{order_id}", response_model=OrderDeleteResponse)
+async def delete_pending_order(
+    order_id: str,
+    current: UserInDB = Depends(require_role(UserRole.COMPRADOR)),
+):
+    return await delete_pending_order_for_buyer(
+        order_id=order_id,
+        buyer_id=current.id,
     )

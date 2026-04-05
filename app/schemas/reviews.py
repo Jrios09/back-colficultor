@@ -15,8 +15,13 @@ class ReviewResponse(BaseModel):
     userId: str
     calificacion: int
     comentario: str
+    respuesta_caficultor: str | None = None
     createdAt: datetime
     updatedAt: datetime
+
+
+class ReviewReplyRequest(BaseModel):
+    respuesta: str = Field(..., min_length=3, max_length=1200)
 
 
 class ProductReviewsResponse(BaseModel):

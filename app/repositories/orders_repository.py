@@ -29,7 +29,15 @@ async def create_order(order_doc: dict) -> dict:
 
 async def list_orders_by_user(user_id: str) -> list[dict]:
     db = get_db()
-    cursor = db["ordenes"].find({"userId": user_id}).sort("createdAt", -1)
+    cursor = db["ordenes"].find(
+        {
+            "userId": user_id,
+            "$or": [
+                {"deletedByBuyer": {"$exists": False}},
+                {"deletedByBuyer": False},
+            ],
+        }
+    ).sort("createdAt", -1)
     docs = await cursor.to_list(length=None)
     return [_serialize_id(doc) for doc in docs]
 
@@ -138,6 +146,52 @@ async def update_order_status_with_history(
         {
             "$set": {
                 "estado": new_status,
+                "updatedAt": now,
+            },
+            "$push": {
+                "statusHistory": history_item,
+            },
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+    return _serialize_id(updated)
+
+
+async def soft_delete_pending_order_by_buyer(
+    *,
+    order_id: str,
+    buyer_id: str,
+) -> dict | None:
+    oid = _parse_object_id(order_id)
+    if oid is None:
+        return None
+
+    db = get_db()
+    current = await db["ordenes"].find_one(
+        {
+            "_id": oid,
+            "userId": buyer_id,
+        }
+    )
+    if not current:
+        return None
+
+    now = datetime.utcnow()
+    from_status = current.get("estado")
+    history_item = {
+        "fromStatus": from_status,
+        "toStatus": "CANCELADA",
+        "changedByUserId": buyer_id,
+        "reason": "buyer_deleted_pending_order",
+        "createdAt": now,
+    }
+
+    updated = await db["ordenes"].find_one_and_update(
+        {"_id": oid, "userId": buyer_id},
+        {
+            "$set": {
+                "estado": "CANCELADA",
+                "deletedByBuyer": True,
                 "updatedAt": now,
             },
             "$push": {

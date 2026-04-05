@@ -1,12 +1,18 @@
 from fastapi import APIRouter, Depends, status
 
 from app.api.deps import get_current_user, require_role
-from app.schemas.reviews import ProductReviewsResponse, ReviewCreateRequest, ReviewResponse
+from app.schemas.reviews import (
+    ProductReviewsResponse,
+    ReviewCreateRequest,
+    ReviewReplyRequest,
+    ReviewResponse,
+)
 from app.schemas.user import UserInDB, UserRole
 from app.services.reviews_service import (
     create_review_for_user,
     get_reviews_for_product,
     get_reviews_for_user,
+    reply_to_review_as_farmer,
 )
 
 router = APIRouter(prefix="/api", tags=["resenas"])
@@ -28,3 +34,16 @@ async def list_product_reviews(product_id: str):
 @router.get("/resenas/mis", response_model=list[ReviewResponse])
 async def list_my_reviews(current: UserInDB = Depends(get_current_user)):
     return await get_reviews_for_user(current.id)
+
+
+@router.post("/resenas/{review_id}/respuesta", response_model=ReviewResponse)
+async def reply_review(
+    review_id: str,
+    payload: ReviewReplyRequest,
+    current: UserInDB = Depends(require_role(UserRole.CAFICULTOR)),
+):
+    return await reply_to_review_as_farmer(
+        review_id=review_id,
+        farmer_id=current.id,
+        payload=payload,
+    )

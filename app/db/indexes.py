@@ -19,6 +19,7 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     transacciones = db["transacciones"]
     resenas = db["resenas"]
     pqr_tickets = db["pqr_tickets"]
+    notifications = db["notifications"]
 
     # ── users ──────────────────────────────────────────────────────────
     # Email único — case-insensitive
@@ -109,6 +110,12 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await pqr_tickets.create_index("estado")
     await pqr_tickets.create_index("createdAt")
     logger.info("Índices en pqr_tickets creados")
+
+    # ── notifications (HU-07) ─────────────────────────────────────────
+    await notifications.create_index([("userId", 1), ("createdAt", -1)])
+    await notifications.create_index([("userId", 1), ("isRead", 1), ("createdAt", -1)])
+    await notifications.create_index("createdAt")
+    logger.info("Índices en notifications creados")
 
     # ── oauth_states (Google OAuth CSRF) ───────────────────────────────
     # Cada state es de un solo uso; expira a los 10 minutos automáticamente

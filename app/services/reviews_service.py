@@ -6,11 +6,14 @@ from app.repositories.orders_repository import user_has_paid_order_for_product
 from app.repositories.reviews_repository import (
     ReviewAlreadyExistsError,
     create_review,
+    get_product_owner_id,
+    get_review_by_id,
     list_reviews_by_product,
     list_reviews_by_user,
     product_exists,
+    set_review_reply,
 )
-from app.schemas.reviews import ReviewCreateRequest
+from app.schemas.reviews import ReviewCreateRequest, ReviewReplyRequest
 
 
 async def create_review_for_user(*, user_id: str, payload: ReviewCreateRequest) -> dict:
@@ -70,3 +73,38 @@ async def get_reviews_for_product(product_id: str) -> dict:
 
 async def get_reviews_for_user(user_id: str) -> list[dict]:
     return await list_reviews_by_user(user_id)
+
+
+async def reply_to_review_as_farmer(
+    *,
+    review_id: str,
+    farmer_id: str,
+    payload: ReviewReplyRequest,
+) -> dict:
+    review = await get_review_by_id(review_id)
+    if not review:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reseña no encontrada",
+        )
+
+    owner_id = await get_product_owner_id(review.get("productId", ""))
+    if not owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto asociado a la reseña no encontrado",
+        )
+
+    if owner_id != farmer_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para responder esta reseña",
+        )
+
+    updated = await set_review_reply(review_id=review_id, reply_text=payload.respuesta.strip())
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reseña no encontrada",
+        )
+    return updated
