@@ -38,8 +38,6 @@ ORDER_TRANSITIONS_BY_ROLE: dict[str, set[tuple[OrderStatus, OrderStatus]]] = {
         (OrderStatus.PAGADA, OrderStatus.EN_PREPARACION),
         (OrderStatus.EN_PREPARACION, OrderStatus.ENVIADA),
         (OrderStatus.ENVIADA, OrderStatus.ENTREGADA),
-        (OrderStatus.PAGADA, OrderStatus.CANCELADA),
-        (OrderStatus.EN_PREPARACION, OrderStatus.CANCELADA),
     },
     UserRole.ADMIN.value: {
         (OrderStatus.PAGADA, OrderStatus.EN_PREPARACION),

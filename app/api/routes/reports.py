@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, Query, Response
 
 from app.api.deps import require_role
 from app.schemas.user import UserInDB, UserRole
-from app.services.reports_service import build_orders_csv, build_sales_pdf
+from app.services.reports_service import (
+    build_farmer_sales_csv,
+    build_farmer_sales_pdf,
+    build_orders_csv,
+    build_sales_pdf,
+)
 
 router = APIRouter(prefix="/api/reportes", tags=["reportes"])
 
@@ -32,6 +37,44 @@ async def export_sales_pdf(
 ):
     content = await build_sales_pdf(desde=desde, hasta=hasta)
     filename = f"ventas_{desde.isoformat()}_{hasta.isoformat()}.pdf"
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/mis-ventas.csv")
+async def export_my_sales_csv(
+    desde: date = Query(..., description="Fecha inicio YYYY-MM-DD"),
+    hasta: date = Query(..., description="Fecha fin YYYY-MM-DD"),
+    current: UserInDB = Depends(require_role(UserRole.CAFICULTOR)),
+):
+    content = await build_farmer_sales_csv(
+        caficultor_id=current.id,
+        desde=desde,
+        hasta=hasta,
+    )
+    filename = f"mis_ventas_{desde.isoformat()}_{hasta.isoformat()}.csv"
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/mis-ventas.pdf")
+async def export_my_sales_pdf(
+    desde: date = Query(..., description="Fecha inicio YYYY-MM-DD"),
+    hasta: date = Query(..., description="Fecha fin YYYY-MM-DD"),
+    current: UserInDB = Depends(require_role(UserRole.CAFICULTOR)),
+):
+    content = await build_farmer_sales_pdf(
+        caficultor_id=current.id,
+        desde=desde,
+        hasta=hasta,
+    )
+    filename = f"mis_ventas_{desde.isoformat()}_{hasta.isoformat()}.pdf"
     return Response(
         content=content,
         media_type="application/pdf",
