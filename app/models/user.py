@@ -166,3 +166,14 @@ async def update_user(
     if not result:
         return None
     return _doc_to_in_db(result)
+
+
+async def list_active_user_ids_by_role(role: UserRole | str) -> list[str]:
+    users = get_user_collection()
+    role_value = role.value if isinstance(role, UserRole) else str(role)
+    cursor = users.find(
+        {"role": role_value, "is_active": True},
+        {"_id": 1},
+    )
+    docs = await cursor.to_list(length=None)
+    return [str(doc["_id"]) for doc in docs]

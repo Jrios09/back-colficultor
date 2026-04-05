@@ -10,6 +10,11 @@ from app.repositories.pqr_repository import (
     update_ticket_estado,
     update_ticket_respuesta,
 )
+from app.services.notifications_service import (
+    notify_new_pqr_to_admins,
+    notify_pqr_answer_to_user,
+    notify_pqr_status_to_user,
+)
 from app.schemas.pqr import PqrCreateRequest, PqrEstado, PqrRespuestaRequest
 from app.schemas.user import UserRole
 
@@ -31,7 +36,17 @@ async def create_ticket_for_user(*, user_id: str, payload: PqrCreateRequest) -> 
         "createdAt": now,
         "updatedAt": now,
     }
-    return await create_ticket(ticket_doc)
+    created = await create_ticket(ticket_doc)
+    try:
+        await notify_new_pqr_to_admins(
+            ticket_id=str(created.get("_id", "")),
+            user_id=user_id,
+            tipo=payload.tipo,
+            asunto=payload.asunto.strip(),
+        )
+    except Exception:
+        pass
+    return created
 
 
 async def list_my_tickets(user_id: str) -> list[dict]:
@@ -74,6 +89,14 @@ async def change_ticket_status(*, ticket_id: str, estado: PqrEstado, actor_role:
     updated = await update_ticket_estado(ticket_id=ticket_id, estado=estado.value)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket no encontrado")
+    try:
+        await notify_pqr_status_to_user(
+            ticket_id=ticket_id,
+            user_id=str(updated.get("userId", "")),
+            estado=estado,
+        )
+    except Exception:
+        pass
     return updated
 
 
@@ -90,4 +113,11 @@ async def answer_ticket(*, ticket_id: str, payload: PqrRespuestaRequest, actor_r
     )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket no encontrado")
+    try:
+        await notify_pqr_answer_to_user(
+            ticket_id=ticket_id,
+            user_id=str(updated.get("userId", "")),
+        )
+    except Exception:
+        pass
     return updated

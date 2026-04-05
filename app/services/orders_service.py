@@ -20,7 +20,11 @@ from app.repositories.products_repository import (
     get_active_products_by_ids,
     increment_stock,
 )
-from app.services.notifications_service import notify_new_order_to_farmers
+from app.services.notifications_service import (
+    notify_new_order_to_farmers,
+    notify_order_created_to_buyer,
+    notify_order_status_changed_to_buyer,
+)
 from app.schemas.orders import OrderStatus
 from app.schemas.user import UserRole
 
@@ -175,12 +179,20 @@ async def create_order_from_cart(user_id: str) -> dict:
     # No bloquear el flujo de compra por fallos o latencia en notificaciones.
     try:
         await asyncio.wait_for(
-            notify_new_order_to_farmers(
-                order_id=order["_id"],
-                buyer_id=user_id,
-                caficultor_ids=sorted(caficultor_ids),
-                total=total,
-                items_count=len(order_items),
+            asyncio.gather(
+                notify_new_order_to_farmers(
+                    order_id=order["_id"],
+                    buyer_id=user_id,
+                    caficultor_ids=sorted(caficultor_ids),
+                    total=total,
+                    items_count=len(order_items),
+                ),
+                notify_order_created_to_buyer(
+                    order_id=order["_id"],
+                    buyer_id=user_id,
+                    total=total,
+                    items_count=len(order_items),
+                ),
             ),
             timeout=2.0,
         )
@@ -284,6 +296,20 @@ async def change_order_status(
     )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden no encontrada")
+
+    try:
+        await asyncio.wait_for(
+            notify_order_status_changed_to_buyer(
+                order_id=order_id,
+                buyer_id=str(order.get("userId", "")),
+                from_status=current_status.value,
+                to_status=new_status.value,
+            ),
+            timeout=1.5,
+        )
+    except Exception:
+        logger.exception("Error enviando notificación de cambio de estado order_id=%s", order_id)
+
     return updated
 
 
