@@ -76,3 +76,29 @@ async def update_ticket_respuesta(*, ticket_id: str, respuesta: str) -> dict | N
         return_document=ReturnDocument.AFTER,
     )
     return _serialize_id(updated)
+
+
+async def append_ticket_message(
+    *,
+    ticket_id: str,
+    message_doc: dict,
+    set_respuesta: str | None = None,
+) -> dict | None:
+    oid = _parse_object_id(ticket_id)
+    if oid is None:
+        return None
+
+    db = get_db()
+    update_doc: dict = {
+        "$push": {"mensajes": message_doc},
+        "$set": {"updatedAt": datetime.utcnow()},
+    }
+    if set_respuesta is not None:
+        update_doc["$set"]["respuesta"] = set_respuesta
+
+    updated = await db["pqr_tickets"].find_one_and_update(
+        {"_id": oid},
+        update_doc,
+        return_document=ReturnDocument.AFTER,
+    )
+    return _serialize_id(updated)

@@ -4,11 +4,13 @@ from app.api.deps import get_current_user, require_role
 from app.schemas.pqr import (
     PqrCreateRequest,
     PqrEstadoUpdateRequest,
+    PqrMensajeCreateRequest,
     PqrRespuestaRequest,
     PqrTicketResponse,
 )
 from app.schemas.user import UserInDB, UserRole
 from app.services.pqr_service import (
+    add_ticket_message,
     answer_ticket,
     change_ticket_status,
     create_ticket_for_user,
@@ -75,4 +77,18 @@ async def respond_pqr_ticket(
         ticket_id=ticket_id,
         payload=payload,
         actor_role=current.role,
+    )
+
+
+@router.post("/{ticket_id}/mensajes", response_model=PqrTicketResponse)
+async def send_pqr_message(
+    ticket_id: str,
+    payload: PqrMensajeCreateRequest,
+    current: UserInDB = Depends(get_current_user),
+):
+    return await add_ticket_message(
+        ticket_id=ticket_id,
+        sender_id=current.id,
+        sender_role=current.role,
+        payload=payload,
     )

@@ -372,6 +372,19 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
                 "descripcion": {"bsonType": "string", "minLength": 5, "maxLength": 3000},
                 "estado": {"enum": ["ABIERTO", "EN_PROCESO", "CERRADO"]},
                 "respuesta": {"bsonType": ["string", "null"]},
+                "mensajes": {
+                    "bsonType": ["array"],
+                    "items": {
+                        "bsonType": "object",
+                        "required": ["autorId", "autorRole", "mensaje", "createdAt"],
+                        "properties": {
+                            "autorId": {"bsonType": "string"},
+                            "autorRole": {"bsonType": "string", "minLength": 3, "maxLength": 50},
+                            "mensaje": {"bsonType": "string", "minLength": 1, "maxLength": 3000},
+                            "createdAt": {"bsonType": "date"},
+                        },
+                    },
+                },
                 "createdAt": {"bsonType": "date"},
                 "updatedAt": {"bsonType": "date"},
             },

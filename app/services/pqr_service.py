@@ -3,19 +3,24 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 from app.repositories.pqr_repository import (
+    append_ticket_message,
     create_ticket,
     get_ticket_by_id,
     list_all_tickets,
     list_tickets_by_user,
     update_ticket_estado,
-    update_ticket_respuesta,
 )
 from app.services.notifications_service import (
     notify_new_pqr_to_admins,
     notify_pqr_answer_to_user,
     notify_pqr_status_to_user,
 )
-from app.schemas.pqr import PqrCreateRequest, PqrEstado, PqrRespuestaRequest
+from app.schemas.pqr import (
+    PqrCreateRequest,
+    PqrEstado,
+    PqrMensajeCreateRequest,
+    PqrRespuestaRequest,
+)
 from app.schemas.user import UserRole
 
 
@@ -33,6 +38,14 @@ async def create_ticket_for_user(*, user_id: str, payload: PqrCreateRequest) -> 
         "descripcion": payload.descripcion.strip(),
         "estado": PqrEstado.ABIERTO.value,
         "respuesta": None,
+        "mensajes": [
+            {
+                "autorId": user_id,
+                "autorRole": "USUARIO",
+                "mensaje": payload.descripcion.strip(),
+                "createdAt": now,
+            }
+        ],
         "createdAt": now,
         "updatedAt": now,
     }
@@ -107,9 +120,16 @@ async def answer_ticket(*, ticket_id: str, payload: PqrRespuestaRequest, actor_r
             detail="No tienes permiso para responder tickets",
         )
 
-    updated = await update_ticket_respuesta(
+    message_text = payload.respuesta.strip()
+    updated = await append_ticket_message(
         ticket_id=ticket_id,
-        respuesta=payload.respuesta.strip(),
+        message_doc={
+            "autorId": "admin",
+            "autorRole": UserRole.ADMIN.value,
+            "mensaje": message_text,
+            "createdAt": datetime.utcnow(),
+        },
+        set_respuesta=message_text,
     )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket no encontrado")
@@ -120,4 +140,62 @@ async def answer_ticket(*, ticket_id: str, payload: PqrRespuestaRequest, actor_r
         )
     except Exception:
         pass
+    return updated
+
+
+async def add_ticket_message(
+    *,
+    ticket_id: str,
+    sender_id: str,
+    sender_role: str | UserRole,
+    payload: PqrMensajeCreateRequest,
+) -> dict:
+    ticket = await get_ticket_by_id(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket no encontrado")
+
+    raw_role = sender_role.value if isinstance(sender_role, UserRole) else str(sender_role)
+    is_admin = raw_role == UserRole.ADMIN.value
+    if not is_admin and ticket.get("userId") != sender_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para enviar mensajes en este ticket",
+        )
+
+    text = payload.mensaje.strip()
+    if not text:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El mensaje no puede estar vacío",
+        )
+
+    updated = await append_ticket_message(
+        ticket_id=ticket_id,
+        message_doc={
+            "autorId": sender_id,
+            "autorRole": raw_role,
+            "mensaje": text,
+            "createdAt": datetime.utcnow(),
+        },
+        set_respuesta=text if is_admin else None,
+    )
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket no encontrado")
+
+    try:
+        if is_admin:
+            await notify_pqr_answer_to_user(
+                ticket_id=ticket_id,
+                user_id=str(updated.get("userId", "")),
+            )
+        else:
+            await notify_new_pqr_to_admins(
+                ticket_id=ticket_id,
+                user_id=sender_id,
+                tipo=str(updated.get("tipo", "PQR")),
+                asunto=f"Nuevo mensaje en ticket: {updated.get('asunto', '')}",
+            )
+    except Exception:
+        pass
+
     return updated
