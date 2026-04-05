@@ -30,7 +30,7 @@ async def create_review_for_user(*, user_id: str, payload: ReviewCreateRequest) 
     if not has_paid_purchase:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo puedes reseñar productos que ya compraste en una orden pagada",
+            detail="Solo puedes reseñar productos que ya compraste y cuyo pedido ya fue pagado o entregado",
         )
 
     now = datetime.utcnow()

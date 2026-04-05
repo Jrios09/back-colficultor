@@ -105,7 +105,14 @@ async def user_has_paid_order_for_product(*, user_id: str, product_id: str) -> b
     count = await db["ordenes"].count_documents(
         {
             "userId": user_id,
-            "estado": "PAGADA",
+            "estado": {
+                "$in": [
+                    "PAGADA",
+                    "EN_PREPARACION",
+                    "ENVIADA",
+                    "ENTREGADA",
+                ]
+            },
             "items": {"$elemMatch": {"productId": product_id}},
         },
         limit=1,
