@@ -60,3 +60,12 @@ class PerfilUpdate(BaseModel):
     perfil_direccion: Optional[str] = Field(None, max_length=200)
     perfil_telefono: Optional[str] = Field(None, max_length=20)
     perfil_preferencias: Optional[str] = Field(None, max_length=500)
+
+
+class UserRoleUpdateRequest(BaseModel):
+    role: UserRole
+
+
+class UserAdminActionResponse(BaseModel):
+    message: str
+    user_id: str

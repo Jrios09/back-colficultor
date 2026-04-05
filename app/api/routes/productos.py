@@ -11,6 +11,7 @@ from app.models.producto import (
     create_producto,
     get_productos_by_caficultor,
     get_all_active_productos,
+    get_all_productos,
     get_producto_by_id,
     update_producto,
     soft_delete_producto,
@@ -51,6 +52,14 @@ async def listar_mis_productos(
 
     # Comprador ve el catálogo completo de productos activos
     return await get_all_active_productos()
+
+
+@router.get("/admin/todos", response_model=list[dict])
+async def listar_todos_productos_admin(
+    _: UserInDB = Depends(require_role(UserRole.ADMIN)),
+):
+    """Lista todos los productos para gestión de administrador."""
+    return await get_all_productos(include_inactive=True)
 
 
 @router.put("/{producto_id}", response_model=dict)
