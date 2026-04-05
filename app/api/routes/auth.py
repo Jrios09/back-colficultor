@@ -63,7 +63,7 @@ def _enforce_rate_limit(*, key: str, limit: int, window_seconds: int) -> None:
     )
 
 
-async def _verify_recaptcha(request: Request) -> None:
+async def _verify_recaptcha(request: Request, *, expected_action: str | None = None) -> None:
     """Verifica reCAPTCHA v3. Lanza HTTPException si falla."""
     recaptcha_token = request.headers.get("x-recaptcha-token")
     if not recaptcha_token:
@@ -71,7 +71,10 @@ async def _verify_recaptcha(request: Request) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Token de reCAPTCHA no proporcionado",
         )
-    ok, score, msg = await verify_recaptcha_token(recaptcha_token)
+    ok, score, msg = await verify_recaptcha_token(
+        recaptcha_token,
+        expected_action=expected_action,
+    )
     if not ok:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -87,7 +90,7 @@ async def register(user_in: UserCreate, request: Request):
         limit=settings.AUTH_REGISTER_RATE_LIMIT,
         window_seconds=settings.AUTH_REGISTER_RATE_LIMIT_WINDOW_SECONDS,
     )
-    await _verify_recaptcha(request)
+    await _verify_recaptcha(request, expected_action="register")
     return await create_user(user_in)
 
 
@@ -100,7 +103,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         limit=settings.AUTH_LOGIN_RATE_LIMIT,
         window_seconds=settings.AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
     )
-    await _verify_recaptcha(request)
+    await _verify_recaptcha(request, expected_action="login")
 
     user = await authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -130,7 +133,7 @@ async def forgot_password(payload: ForgotPasswordRequest, request: Request):
         limit=settings.AUTH_FORGOT_PASSWORD_RATE_LIMIT,
         window_seconds=settings.AUTH_FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS,
     )
-    await _verify_recaptcha(request)
+    await _verify_recaptcha(request, expected_action="forgot_password")
     message = await request_password_reset(
         email=payload.email,
         client_ip=request.client.host if request.client else None,

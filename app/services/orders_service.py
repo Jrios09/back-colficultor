@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from datetime import datetime
 
 from fastapi import HTTPException, status
@@ -10,6 +12,7 @@ from app.repositories.orders_repository import (
     list_orders_by_caficultor,
     list_orders_by_user,
     order_has_caficultor,
+    soft_delete_pending_order_by_buyer,
     update_order_status_with_history,
 )
 from app.repositories.products_repository import (
@@ -17,9 +20,15 @@ from app.repositories.products_repository import (
     get_active_products_by_ids,
     increment_stock,
 )
+from app.services.notifications_service import (
+    notify_new_order_to_farmers,
+    notify_order_created_to_buyer,
+    notify_order_status_changed_to_buyer,
+)
 from app.schemas.orders import OrderStatus
 from app.schemas.user import UserRole
 
+logger = logging.getLogger(__name__)
 
 ROLE_VALUE_MAP = {
     UserRole.COMPRADOR.value: UserRole.COMPRADOR.value,
@@ -33,8 +42,6 @@ ORDER_TRANSITIONS_BY_ROLE: dict[str, set[tuple[OrderStatus, OrderStatus]]] = {
         (OrderStatus.PAGADA, OrderStatus.EN_PREPARACION),
         (OrderStatus.EN_PREPARACION, OrderStatus.ENVIADA),
         (OrderStatus.ENVIADA, OrderStatus.ENTREGADA),
-        (OrderStatus.PAGADA, OrderStatus.CANCELADA),
-        (OrderStatus.EN_PREPARACION, OrderStatus.CANCELADA),
     },
     UserRole.ADMIN.value: {
         (OrderStatus.PAGADA, OrderStatus.EN_PREPARACION),
@@ -168,6 +175,32 @@ async def create_order_from_cart(user_id: str) -> dict:
 
     order = await create_order(order_doc)
     await clear_cart(user_id)
+
+    # No bloquear el flujo de compra por fallos o latencia en notificaciones.
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(
+                notify_new_order_to_farmers(
+                    order_id=order["_id"],
+                    buyer_id=user_id,
+                    caficultor_ids=sorted(caficultor_ids),
+                    total=total,
+                    items_count=len(order_items),
+                ),
+                notify_order_created_to_buyer(
+                    order_id=order["_id"],
+                    buyer_id=user_id,
+                    total=total,
+                    items_count=len(order_items),
+                ),
+            ),
+            timeout=2.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Timeout enviando notificaciones de nueva orden order_id=%s", order.get("_id"))
+    except Exception:
+        logger.exception("Error enviando notificaciones de nueva orden order_id=%s", order.get("_id"))
+
     return order
 
 
@@ -263,4 +296,57 @@ async def change_order_status(
     )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden no encontrada")
+
+    try:
+        await asyncio.wait_for(
+            notify_order_status_changed_to_buyer(
+                order_id=order_id,
+                buyer_id=str(order.get("userId", "")),
+                from_status=current_status.value,
+                to_status=new_status.value,
+            ),
+            timeout=1.5,
+        )
+    except Exception:
+        logger.exception("Error enviando notificación de cambio de estado order_id=%s", order_id)
+
     return updated
+
+
+async def delete_pending_order_for_buyer(*, order_id: str, buyer_id: str) -> dict:
+    order = await get_order_by_id(order_id)
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden no encontrada")
+
+    if order.get("userId") != buyer_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para eliminar esta orden",
+        )
+
+    if order.get("deletedByBuyer") is True:
+        return {
+            "message": "La orden ya fue eliminada de tu historial.",
+            "orderId": order_id,
+        }
+
+    if order.get("estado") != OrderStatus.PENDIENTE_PAGO.value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Solo puedes eliminar órdenes en estado PENDIENTE_PAGO",
+        )
+
+    for item in order.get("items", []):
+        await increment_stock(item.get("productId", ""), int(item.get("cantidad", 0)))
+
+    updated = await soft_delete_pending_order_by_buyer(order_id=order_id, buyer_id=buyer_id)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se pudo eliminar la orden",
+        )
+
+    return {
+        "message": "Orden pendiente eliminada correctamente.",
+        "orderId": order_id,
+    }

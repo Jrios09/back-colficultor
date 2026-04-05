@@ -59,6 +59,20 @@ async def get_all_active_productos() -> list[dict]:
     return [_doc_to_product(d) for d in docs]
 
 
+async def get_all_productos(*, include_inactive: bool = True) -> list[dict]:
+    """
+    Lista todos los productos para administración.
+    include_inactive=True incluye activos e inactivos.
+    """
+    db = get_db()
+    query: dict = {}
+    if not include_inactive:
+        query["is_active"] = True
+    cursor = db["productos"].find(query).sort("created_at", -1)
+    docs = await cursor.to_list(length=None)
+    return [_doc_to_product(d) for d in docs]
+
+
 async def get_producto_by_id(producto_id: str) -> dict | None:
     """Busca un producto por su ObjectId. Retorna None si no existe."""
     db = get_db()

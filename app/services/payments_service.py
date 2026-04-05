@@ -15,6 +15,10 @@ from app.repositories.payments_repository import (
     set_order_status_with_history,
     update_transaction_status,
 )
+from app.services.notifications_service import (
+    notify_payment_approved_to_farmers,
+    notify_payment_result_to_buyer,
+)
 from app.schemas.orders import OrderStatus
 from app.schemas.payments import (
     CreatePaymentIntentResponse,
@@ -257,6 +261,27 @@ async def _persist_payment_result(
             changed_by_user_id=None,
             reason=f"payment:{status_value.value}",
         )
+
+    if not idempotent:
+        try:
+            await notify_payment_result_to_buyer(
+                order_id=order_id,
+                buyer_id=str(order.get("userId", "")),
+                payment_status=status_value.value,
+                provider_ref=provider_ref,
+                amount=amount,
+                currency=currency,
+            )
+            if status_value == PaymentStatus.APPROVED:
+                await notify_payment_approved_to_farmers(
+                    order_id=order_id,
+                    caficultor_ids=[str(x) for x in order.get("caficultorIds", [])],
+                    amount=amount,
+                    currency=currency,
+                )
+        except Exception:
+            # No bloquear webhook/confirmación por fallos en notificaciones.
+            pass
 
     return PaymentWebhookResponse(
         accepted=True,

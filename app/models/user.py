@@ -166,3 +166,70 @@ async def update_user(
     if not result:
         return None
     return _doc_to_in_db(result)
+
+
+async def list_active_user_ids_by_role(role: UserRole | str) -> list[str]:
+    users = get_user_collection()
+    role_value = role.value if isinstance(role, UserRole) else str(role)
+    cursor = users.find(
+        {"role": role_value, "is_active": True},
+        {"_id": 1},
+    )
+    docs = await cursor.to_list(length=None)
+    return [str(doc["_id"]) for doc in docs]
+
+
+def _to_public(user_in_db: UserInDB) -> UserPublic:
+    return UserPublic(**user_in_db.dict(by_alias=True, exclude={"password_hash"}))
+
+
+async def list_users_admin(
+    *,
+    role: UserRole | str | None = None,
+    is_active: bool | None = None,
+    search: str | None = None,
+    limit: int = 200,
+) -> list[UserPublic]:
+    users = get_user_collection()
+    query: dict = {}
+    if role is not None:
+        query["role"] = role.value if isinstance(role, UserRole) else str(role)
+    if is_active is not None:
+        query["is_active"] = bool(is_active)
+    if search:
+        term = str(search).strip()
+        if term:
+            query["$or"] = [
+                {"email": {"$regex": term, "$options": "i"}},
+                {"full_name": {"$regex": term, "$options": "i"}},
+            ]
+
+    cursor = users.find(query).sort("created_at", -1).limit(limit)
+    docs = await cursor.to_list(length=limit)
+    result: list[UserPublic] = []
+    for doc in docs:
+        in_db = _doc_to_in_db(doc)
+        result.append(_to_public(in_db))
+    return result
+
+
+async def set_user_role(*, user_id: str, role: UserRole) -> UserPublic | None:
+    if not ObjectId.is_valid(user_id):
+        return None
+    users = get_user_collection()
+    updated = await users.find_one_and_update(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"role": role.value, "updated_at": datetime.utcnow()}},
+        return_document=True,
+    )
+    if not updated:
+        return None
+    return _to_public(_doc_to_in_db(updated))
+
+
+async def delete_user_permanently(*, user_id: str) -> bool:
+    if not ObjectId.is_valid(user_id):
+        return False
+    users = get_user_collection()
+    result = await users.delete_one({"_id": ObjectId(user_id)})
+    return result.deleted_count == 1

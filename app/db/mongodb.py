@@ -27,6 +27,11 @@ def get_google_pending_collection():
     return get_db()["google_pending"]
 
 
+def get_notifications_collection():
+    """Notificaciones internas del sistema."""
+    return get_db()["notifications"]
+
+
 async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
     """Aplica validators de esquema a las colecciones para prevenir documentos malformados."""
     import logging
@@ -304,3 +309,147 @@ async def setup_collection_validators(db: AsyncIOMotorDatabase) -> None:
         logger.info("Validator para colección 'transacciones' aplicado")
     except Exception as ex:
         logger.warning("No se pudo aplicar validator en 'transacciones' (puede ya existir): %s", ex)
+
+    # ── resenas (HU-08) ───────────────────────────────────────────────
+    resenas_validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": [
+                "productId",
+                "userId",
+                "calificacion",
+                "comentario",
+                "createdAt",
+                "updatedAt",
+            ],
+            "properties": {
+                "productId": {"bsonType": "string"},
+                "userId": {"bsonType": "string"},
+                "calificacion": {"bsonType": "int", "minimum": 1, "maximum": 5},
+                "comentario": {"bsonType": "string", "minLength": 3, "maxLength": 1200},
+                "respuesta_caficultor": {"bsonType": ["string", "null"], "maxLength": 1200},
+                "createdAt": {"bsonType": "date"},
+                "updatedAt": {"bsonType": "date"},
+            },
+        }
+    }
+    try:
+        if "resenas" in existing_collections:
+            await db.command({
+                "collMod": "resenas",
+                "validator": resenas_validator,
+                "validationLevel": "moderate",
+                "validationAction": "error",
+            })
+        else:
+            await db.create_collection(
+                "resenas",
+                validator=resenas_validator,
+                validationLevel="moderate",
+                validationAction="error",
+            )
+        logger.info("Validator para colección 'resenas' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'resenas' (puede ya existir): %s", ex)
+
+    # ── pqr_tickets (HU-09) ───────────────────────────────────────────
+    pqr_tickets_validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": [
+                "userId",
+                "tipo",
+                "asunto",
+                "descripcion",
+                "estado",
+                "createdAt",
+                "updatedAt",
+            ],
+            "properties": {
+                "userId": {"bsonType": "string"},
+                "tipo": {"enum": ["PETICION", "QUEJA", "RECLAMO", "SOPORTE"]},
+                "asunto": {"bsonType": "string", "minLength": 3, "maxLength": 200},
+                "descripcion": {"bsonType": "string", "minLength": 5, "maxLength": 3000},
+                "estado": {"enum": ["ABIERTO", "EN_PROCESO", "CERRADO"]},
+                "respuesta": {"bsonType": ["string", "null"]},
+                "mensajes": {
+                    "bsonType": ["array"],
+                    "items": {
+                        "bsonType": "object",
+                        "required": ["autorId", "autorRole", "mensaje", "createdAt"],
+                        "properties": {
+                            "autorId": {"bsonType": "string"},
+                            "autorRole": {"bsonType": "string", "minLength": 3, "maxLength": 50},
+                            "mensaje": {"bsonType": "string", "minLength": 1, "maxLength": 3000},
+                            "createdAt": {"bsonType": "date"},
+                        },
+                    },
+                },
+                "createdAt": {"bsonType": "date"},
+                "updatedAt": {"bsonType": "date"},
+            },
+        }
+    }
+    try:
+        if "pqr_tickets" in existing_collections:
+            await db.command({
+                "collMod": "pqr_tickets",
+                "validator": pqr_tickets_validator,
+                "validationLevel": "moderate",
+                "validationAction": "error",
+            })
+        else:
+            await db.create_collection(
+                "pqr_tickets",
+                validator=pqr_tickets_validator,
+                validationLevel="moderate",
+                validationAction="error",
+            )
+        logger.info("Validator para colección 'pqr_tickets' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'pqr_tickets' (puede ya existir): %s", ex)
+
+    # ── notifications (HU-07) ─────────────────────────────────────────
+    notifications_validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": [
+                "userId",
+                "type",
+                "title",
+                "message",
+                "isRead",
+                "createdAt",
+                "updatedAt",
+            ],
+            "properties": {
+                "userId": {"bsonType": "string"},
+                "type": {"bsonType": "string", "minLength": 3, "maxLength": 120},
+                "title": {"bsonType": "string", "minLength": 3, "maxLength": 200},
+                "message": {"bsonType": "string", "minLength": 3, "maxLength": 3000},
+                "meta": {"bsonType": ["object", "null"]},
+                "isRead": {"bsonType": "bool"},
+                "readAt": {"bsonType": ["date", "null"]},
+                "createdAt": {"bsonType": "date"},
+                "updatedAt": {"bsonType": "date"},
+            },
+        }
+    }
+    try:
+        if "notifications" in existing_collections:
+            await db.command({
+                "collMod": "notifications",
+                "validator": notifications_validator,
+                "validationLevel": "moderate",
+                "validationAction": "error",
+            })
+        else:
+            await db.create_collection(
+                "notifications",
+                validator=notifications_validator,
+                validationLevel="moderate",
+                validationAction="error",
+            )
+        logger.info("Validator para colección 'notifications' aplicado")
+    except Exception as ex:
+        logger.warning("No se pudo aplicar validator en 'notifications' (puede ya existir): %s", ex)
