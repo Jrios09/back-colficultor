@@ -281,26 +281,35 @@ async def delete_all_product_images_for_product(product: dict) -> None:
     if not images:
         return
 
-    cloudinary = _get_cloudinary_or_raise()
+    cloudinary = None
+    try:
+        cloudinary = _get_cloudinary_or_raise()
+    except HTTPException:
+        logger.warning(
+            "Cloudinary no disponible al eliminar producto=%s. Se limpiarán solo metadatos en MongoDB.",
+            product.get("_id"),
+        )
+
     deleted_count = 0
     failed_count = 0
-    for image in images:
-        public_id = image.get("public_id")
-        if not public_id:
-            continue
-        try:
-            await cloudinary.delete_image(public_id)
-            deleted_count += 1
-        except Exception:
-            failed_count += 1
-            logger.warning(
-                "No se pudo eliminar imagen de Cloudinary para producto=%s public_id=%s",
-                product["_id"],
-                public_id,
-            )
+    if cloudinary is not None:
+        for image in images:
+            public_id = image.get("public_id")
+            if not public_id:
+                continue
+            try:
+                await cloudinary.delete_image(public_id)
+                deleted_count += 1
+            except Exception:
+                failed_count += 1
+                logger.warning(
+                    "No se pudo eliminar imagen de Cloudinary para producto=%s public_id=%s",
+                    product["_id"],
+                    public_id,
+                )
 
     try:
-        await clear_producto_imagenes(product_id=product["_id"])
+        await clear_producto_imagenes(producto_id=product["_id"])
     except Exception:
         logger.warning(
             "No se pudieron limpiar metadatos de imágenes en MongoDB para producto=%s",
