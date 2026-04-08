@@ -142,6 +142,20 @@ async def soft_delete_producto_admin(producto_id: str) -> None:
         )
 
 
+async def hard_delete_producto_admin(producto_id: str) -> None:
+    """
+    Elimina físicamente un producto sin verificar dueño.
+    Útil para rol admin.
+    """
+    db = get_db()
+    result = await db["productos"].delete_one({"_id": ObjectId(producto_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
+
+
 def _extract_urls(imagenes: list[dict]) -> list[str]:
     urls: list[str] = []
     for image in imagenes:

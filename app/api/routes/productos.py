@@ -15,7 +15,7 @@ from app.models.producto import (
     get_producto_by_id,
     update_producto,
     soft_delete_producto,
-    soft_delete_producto_admin,
+    hard_delete_producto_admin,
 )
 from app.services.product_images_service import delete_all_product_images_for_product
 
@@ -98,8 +98,9 @@ async def eliminar_producto(
     current: UserInDB = Depends(require_role(UserRole.CAFICULTOR, UserRole.ADMIN)),
 ):
     """
-    Desactiva un producto (soft-delete).
-    Solo el caficultor dueño puede desactivar su propio producto.
+    Elimina un producto.
+    - Admin: borrado físico (hard-delete).
+    - Caficultor dueño: desactivación (soft-delete).
     """
     producto = await get_producto_by_id(producto_id)
     if not producto:
@@ -111,7 +112,7 @@ async def eliminar_producto(
 
     await delete_all_product_images_for_product(producto)
     if is_admin:
-        await soft_delete_producto_admin(producto_id)
+        await hard_delete_producto_admin(producto_id)
     else:
         await soft_delete_producto(producto_id, current.id)
     return None
