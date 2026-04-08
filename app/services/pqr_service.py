@@ -29,8 +29,9 @@ def _is_admin(role: str | UserRole) -> bool:
     return raw_role == UserRole.ADMIN.value
 
 
-async def create_ticket_for_user(*, user_id: str, payload: PqrCreateRequest) -> dict:
+async def create_ticket_for_user(*, user_id: str, user_role: str | UserRole, payload: PqrCreateRequest) -> dict:
     now = datetime.utcnow()
+    raw_role = user_role.value if isinstance(user_role, UserRole) else str(user_role)
     ticket_doc = {
         "userId": user_id,
         "tipo": payload.tipo.value,
@@ -41,7 +42,7 @@ async def create_ticket_for_user(*, user_id: str, payload: PqrCreateRequest) -> 
         "mensajes": [
             {
                 "autorId": user_id,
-                "autorRole": "USUARIO",
+                "autorRole": raw_role,
                 "mensaje": payload.descripcion.strip(),
                 "createdAt": now,
             }

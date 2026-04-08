@@ -27,7 +27,7 @@ async def create_pqr_ticket(
     payload: PqrCreateRequest,
     current: UserInDB = Depends(get_current_user),
 ):
-    return await create_ticket_for_user(user_id=current.id, payload=payload)
+    return await create_ticket_for_user(user_id=current.id, user_role=current.role, payload=payload)
 
 
 @router.get("/mis", response_model=list[PqrTicketResponse])
