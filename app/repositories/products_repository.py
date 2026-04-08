@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 
 from bson import ObjectId
@@ -12,6 +13,60 @@ SORT_MAPPING: dict[str, tuple[str, int]] = {
     "recientes": ("created_at", -1),
 }
 
+# Mapa de caracteres base → clase regex que incluye sus variantes acentuadas.
+# Como usamos $options:"i" no hace falta duplicar mayúsculas.
+_ACCENT_CLASSES: dict[str, str] = {
+    "a": "[aáàâäã]",
+    "á": "[aáàâäã]",
+    "à": "[aáàâäã]",
+    "â": "[aáàâäã]",
+    "ä": "[aáàâäã]",
+    "ã": "[aáàâäã]",
+    "e": "[eéèêë]",
+    "é": "[eéèêë]",
+    "è": "[eéèêë]",
+    "ê": "[eéèêë]",
+    "ë": "[eéèêë]",
+    "i": "[iíìîï]",
+    "í": "[iíìîï]",
+    "ì": "[iíìîï]",
+    "î": "[iíìîï]",
+    "ï": "[iíìîï]",
+    "o": "[oóòôöõ]",
+    "ó": "[oóòôöõ]",
+    "ò": "[oóòôöõ]",
+    "ô": "[oóòôöõ]",
+    "ö": "[oóòôöõ]",
+    "õ": "[oóòôöõ]",
+    "u": "[uúùûü]",
+    "ú": "[uúùûü]",
+    "ù": "[uúùûü]",
+    "û": "[uúùûü]",
+    "ü": "[uúùûü]",
+    "n": "[nñ]",
+    "ñ": "[nñ]",
+    "c": "[cç]",
+    "ç": "[cç]",
+}
+
+
+def _accent_pattern(text: str) -> str:
+    """
+    Convierte un texto en un patrón regex que hace match independientemente
+    de si los caracteres tienen o no tilde/acento.
+    Ejemplo: "cafe" → "[cç][aáàâäã][fF][eéèêë]"
+             "café" → mismo resultado
+    """
+    parts = []
+    for ch in text.lower():
+        if ch.isspace():
+            parts.append(r"\s+")
+        elif ch in _ACCENT_CLASSES:
+            parts.append(_ACCENT_CLASSES[ch])
+        else:
+            parts.append(re.escape(ch))
+    return "".join(parts)
+
 
 def _doc_to_public(doc: dict) -> dict:
     doc["_id"] = str(doc["_id"])
@@ -24,23 +79,30 @@ def _build_catalog_query(
     min_price: float | None,
     max_price: float | None,
 ) -> dict:
-    query: dict = {"is_active": True}
+    # Acumulamos todas las condiciones en una lista para usar $and al final.
+    # Esto evita conflictos entre $or de región y $or de búsqueda de texto.
+    must: list[dict] = [{"is_active": True}]
 
     if q:
-        normalized_q = q.strip()
-        if normalized_q:
-            safe_q = re.escape(normalized_q)
-            query["nombre"] = {"$regex": safe_q, "$options": "i"}
+        tokens = q.strip().split()
+        for token in tokens:
+            pattern = _accent_pattern(token)
+            # Cada palabra debe aparecer en al menos uno de los campos de texto.
+            must.append({
+                "$or": [
+                    {"nombre":      {"$regex": pattern, "$options": "i"}},
+                    {"descripcion": {"$regex": pattern, "$options": "i"}},
+                    {"region":      {"$regex": pattern, "$options": "i"}},
+                ]
+            })
 
     if region:
         normalized_region = region.strip()
         if normalized_region:
-            exact_region = {"$regex": f"^{re.escape(normalized_region)}$", "$options": "i"}
+            region_pattern = _accent_pattern(normalized_region)
+            exact = {"$regex": f"^{region_pattern}$", "$options": "i"}
             # Compatibilidad con datos legacy que usen "origen" en vez de "region".
-            query["$or"] = [
-                {"region": exact_region},
-                {"origen": exact_region},
-            ]
+            must.append({"$or": [{"region": exact}, {"origen": exact}]})
 
     price_filter: dict = {}
     if min_price is not None:
@@ -48,9 +110,9 @@ def _build_catalog_query(
     if max_price is not None:
         price_filter["$lte"] = max_price
     if price_filter:
-        query["precio"] = price_filter
+        must.append({"precio": price_filter})
 
-    return query
+    return {"$and": must} if len(must) > 1 else must[0]
 
 
 async def count_active_products(
