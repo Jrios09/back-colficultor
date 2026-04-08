@@ -50,6 +50,10 @@ def _normalize_identifier(value: str) -> str:
     return value.strip().lower()
 
 
+def _is_dev_env() -> bool:
+    return settings.APP_ENV.strip().lower() in {"dev", "development", "local"}
+
+
 def _hash_key_part(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
@@ -65,6 +69,14 @@ def _enforce_rate_limit(*, key: str, limit: int, window_seconds: int) -> None:
 
 async def _verify_recaptcha(request: Request, *, expected_action: str | None = None) -> None:
     """Verifica reCAPTCHA v3. Lanza HTTPException si falla."""
+    if not settings.RECAPTCHA_ENABLED:
+        if _is_dev_env():
+            return
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Configuración insegura: RECAPTCHA_ENABLED=false fuera de desarrollo",
+        )
+
     recaptcha_token = request.headers.get("x-recaptcha-token")
     if not recaptcha_token:
         raise HTTPException(

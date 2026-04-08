@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     AUTH_FORGOT_PASSWORD_RATE_LIMIT: int = 5
     AUTH_FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS: int = 300
     RECAPTCHA_SECRET_KEY: str = ""
+    RECAPTCHA_ENABLED: bool = True
     RECAPTCHA_VERIFY_URL: str = "https://www.google.com/recaptcha/api/siteverify"
     RECAPTCHA_SCORE_THRESHOLD: float = 0.5
     CLOUDINARY_CLOUD_NAME: str = ""
